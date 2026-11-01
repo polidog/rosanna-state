@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace Polidog\Rosanna\State\Installer;
 
 use Composer\Script\Event;
+use Polidog\Rosanna\Defer\ClientScript;
 
 /**
- * rosanna.js をプロジェクトの public/ に配置する Composer スクリプト。
+ * rosanna.js と rosanna-defer.js をプロジェクトの public/ に配置する Composer スクリプト。
  * Event の型は Composer の中でしか解決されない (RT-13.6)。
  */
 final class AssetInstaller
@@ -45,7 +46,13 @@ final class AssetInstaller
                 return;
             }
 
-            $io->write('<info>Rosanna:</info> Published rosanna.js to public/rosanna.js');
+            if (!@copy(ClientScript::path(), $targetDir . '/rosanna-defer.js')) {
+                $io->writeError('<warning>Rosanna: could not copy rosanna-defer.js</warning>');
+
+                return;
+            }
+
+            $io->write('<info>Rosanna:</info> Published rosanna.js and rosanna-defer.js to public/');
         } catch (\Throwable $e) {
             $io->writeError('<warning>Rosanna: could not publish rosanna.js: ' . $e->getMessage() . '</warning>');
         }

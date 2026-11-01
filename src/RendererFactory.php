@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Polidog\Rosanna\State;
 
+use Polidog\Rosanna\Defer\DeferredEndpoint;
+use Polidog\Rosanna\Defer\PlaceholderRenderer;
 use Polidog\Rosanna\Runtime\Renderer;
 use Polidog\Rosanna\State\Protocol\ActionSigner;
 use Polidog\Rosanna\State\Protocol\CsrfGuard;
@@ -16,13 +18,11 @@ use Polidog\Rosanna\State\Storage\StorageType;
  */
 final class RendererFactory
 {
-    public const DEFAULT_DEFER_PREFIX = '/_defer';
-
     public function __construct(
         private readonly ?SnapshotSerializer $snapshotSerializer,
         private readonly ActionSigner $signer,
         private readonly CsrfGuard $csrf,
-        private readonly string $deferPrefix = self::DEFAULT_DEFER_PREFIX,
+        private readonly string $deferPrefix = DeferredEndpoint::DEFAULT_PREFIX,
     ) {}
 
     /**
@@ -43,13 +43,18 @@ final class RendererFactory
             $persist,
             $this->snapshotSerializer,
             $this->signer,
-            new Renderer($this->extension($rootId, $deferQuery, $deferName)),
+            new Renderer($this->extension($rootId, $deferQuery, $deferName), $this->placeholders()),
         );
     }
 
     /** `Renderer` に差し込む拡張。描画ごとの可変状態を持つので描画ごとに作る */
     public function extension(string $rootId, ?string $deferQuery = null, ?string $deferName = null): ActionFormExtension
     {
-        return new ActionFormExtension($rootId, $deferQuery, $deferName, $this->snapshotSerializer, $this->signer, $this->csrf, $this->deferPrefix);
+        return new ActionFormExtension($rootId, $deferQuery, $deferName, $this->snapshotSerializer, $this->signer, $this->csrf);
+    }
+
+    public function placeholders(): PlaceholderRenderer
+    {
+        return new PlaceholderRenderer($this->deferPrefix);
     }
 }

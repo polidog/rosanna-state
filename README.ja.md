@@ -6,7 +6,7 @@
 
 `polidog/rosanna-state` は、Rosanna の描画に React Hooks の形のコンポーネントを足します。状態はサーバーが持ち、ボタンとフォームは JavaScript なしでも動きます。`rosanna.js` を読み込むと部分更新になります。
 
-このパッケージが持つのは hooks (`fc()`、`useState` など)、action、署名、CSRF、Snapshot、Storage、defer、`rosanna.js` です。`H`、`Element`、`Renderer`、PSX のコンパイラは、このパッケージが依存する [`polidog/rosanna`](https://github.com/polidog/rosanna) にあります。描画だけのサイトにこのパッケージは要りません。
+このパッケージが持つのは hooks (`fc()`、`useState` など)、action、署名、CSRF、Snapshot、Storage、`rosanna.js` です。defer の処理は依存する [`polidog/rosanna-defer`](https://github.com/polidog/rosanna-defer) にあります。`H`、`Element`、`Renderer`、PSX のコンパイラは、このパッケージが依存する [`polidog/rosanna`](https://github.com/polidog/rosanna) にあります。描画だけのサイトにこのパッケージは要りません。
 
 ルーターも DI もイベントも持ちません。URL からページを選ぶのは host (フレームワークか、ページごとの PHP ファイル) の役割です。`polidog/rosanna` と合わせて [usePHP](https://github.com/polidog/usePHP) の作り直しで、移行は[下の手順](#usephp-からの移行)のとおりです。
 
@@ -17,7 +17,7 @@
 
 ```bash
 composer require polidog/rosanna-state
-vendor/bin/rosanna-state publish   # public/rosanna.js を配置する
+vendor/bin/rosanna-state publish   # public/rosanna.js と rosanna-defer.js を配置する
 ```
 
 `composer install` のたびに配置するには `composer.json` に足します。
@@ -700,7 +700,7 @@ TLS を終端するプロキシの後ろでは `$_SERVER['HTTPS']` が空にな�
 
 ## defer
 
-ログイン名やカートの個数のような訪問者ごとの部分をページの読み込み後に別のリクエストで取得し、ページ本体を CDN に載せられるようにします。
+ログイン名やカートの個数のような訪問者ごとの部分をページの読み込み後に別のリクエストで取得し、ページ本体を CDN に載せられるようにします。処理は [`polidog/rosanna-defer`](https://github.com/polidog/rosanna-defer) にあり、state を使わないなら `RosannaState` なしで使えます。
 
 <!-- readme-test: defer -->
 ```php
@@ -713,7 +713,7 @@ use Polidog\Rosanna\Runtime\Element;
 use Polidog\Rosanna\Runtime\RenderContext;
 use Polidog\Rosanna\State\Component\BaseComponent;
 use Polidog\Rosanna\State\Component\Component;
-use Polidog\Rosanna\State\Component\Defer;
+use Polidog\Rosanna\Defer\Defer;
 use Polidog\Rosanna\State\Http\Request;
 use Polidog\Rosanna\State\RosannaState;
 use Polidog\Rosanna\State\Storage\StorageType;
@@ -786,7 +786,7 @@ declare(strict_types=1);
 
 use Polidog\Rosanna\Html\H;
 use Polidog\Rosanna\Runtime\Element;
-use Polidog\Rosanna\State\Component\Defer;
+use Polidog\Rosanna\Defer\Defer;
 use Polidog\Rosanna\State\Http\Request;
 use Polidog\Rosanna\State\RosannaState;
 use Polidog\Rosanna\State\Storage\StorageType;
@@ -826,7 +826,7 @@ $response->send();
 
 ## rosanna.js
 
-`RosannaState::renderClientScript($src, $deferPrefix, $nonce)` は `<script defer>` と、外部ファイルが読めないときに defer を 1 回だけ取得するインラインの fallback を出します。厳しい CSP では第 3 引数に nonce を渡します。
+`RosannaState::renderClientScript($src, $deferPrefix, $nonce, $deferSrc)` は `rosanna.js` と `rosanna-defer.js` の `<script defer>` と、外部ファイルが読めないときに defer を 1 回だけ取得するインラインの fallback を出します。厳しい CSP では第 3 引数に nonce を渡します。
 
 - 差分適用の後の欄の値は、リクエスト中にユーザーが編集した値、サーバーが前回と違う値を描画した場合はその値、送信したフォームの欄は描画された値、それ以外はユーザーの値の順で決まります。hidden と `button` の `value` はサーバーに従います。
 - 並べ替えや削除のある一覧の行には `id` を付けてください。付けないと位置で対応付けます。
@@ -843,7 +843,7 @@ document.addEventListener('rosanna:submit-error', (e) => {
 ## CLI
 
 ```bash
-vendor/bin/rosanna-state publish                 # public/rosanna.js を配置する
+vendor/bin/rosanna-state publish                 # public/rosanna.js と rosanna-defer.js を配置する
 vendor/bin/rosanna-state compile [paths...]      # .psx をコンパイルし deferred manifest を書く (既定は ./components)
 vendor/bin/rosanna-state compile --check         # 書き込まず、古ければ exit 1。CI 向け
 vendor/bin/rosanna-state compile --watch         # 変更を見て再コンパイルする

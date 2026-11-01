@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Polidog\Rosanna\State;
 
+use Polidog\Rosanna\Defer\DeclaresDefer;
+use Polidog\Rosanna\Defer\EndpointTargetScope;
 use Polidog\Rosanna\Runtime\PsxRenderer;
 use Polidog\Rosanna\Runtime\RenderContext;
 use Polidog\Rosanna\Runtime\RenderScope;
@@ -13,7 +15,7 @@ use Polidog\Rosanna\State\Snapshot\SnapshotSerializer;
 /**
  * 状態層のリクエストごとの値。`RenderScope::$state` に入れる。
  */
-final class StateScope
+final class StateScope implements EndpointTargetScope
 {
     /**
      * @param ActionSigner $signer 鍵がなければ sign() が null を返す
@@ -51,12 +53,12 @@ final class StateScope
      * 対象自身だけがプレースホルダーを飛ばす。入れ子の defer はプレースホルダーのままにする (RT-6.2、RT-9.4)。
      * 親のキャッシュの方針で子の出力が返るのを防ぐ。
      */
-    public function isDeferredEndpointTarget(FunctionComponent $component): bool
+    public function isDeferredEndpointTarget(DeclaresDefer $component): bool
     {
         if ($this->deferredEndpointName === null) {
             return false;
         }
-        if ($component->defer?->name === $this->deferredEndpointName) {
+        if ($component->deferDeclaration()?->name === $this->deferredEndpointName) {
             return true;
         }
 

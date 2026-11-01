@@ -4,7 +4,13 @@ declare(strict_types=1);
 
 namespace Polidog\Rosanna\State;
 
+use Polidog\Rosanna\Defer\ClientScript;
+use Polidog\Rosanna\Defer\DeferredEndpoint;
+use Polidog\Rosanna\Defer\DeferredManifestCompiler;
+use Polidog\Rosanna\Defer\DeferredRegistry;
+use Polidog\Rosanna\Defer\DeferRequest;
 use Polidog\Rosanna\Rosanna;
+use Polidog\Rosanna\Runtime\DeferredRenderer;
 use Polidog\Rosanna\Runtime\Element;
 use Polidog\Rosanna\Runtime\PsxArgumentResolver;
 use Polidog\Rosanna\Runtime\PsxRenderer;
@@ -13,13 +19,12 @@ use Polidog\Rosanna\Runtime\RenderScope;
 use Polidog\Rosanna\State\Component\BaseComponent;
 use Polidog\Rosanna\State\Component\ComponentInterface;
 use Polidog\Rosanna\State\Component\ComponentRegistry;
-use Polidog\Rosanna\State\Component\DeferredRegistry;
 use Polidog\Rosanna\State\Http\Request;
 use Polidog\Rosanna\State\Http\Response;
 use Polidog\Rosanna\State\Protocol\ActionHandler;
 use Polidog\Rosanna\State\Protocol\ActionSigner;
 use Polidog\Rosanna\State\Protocol\CsrfGuard;
-use Polidog\Rosanna\State\Protocol\DeferredEndpoint;
+use Polidog\Rosanna\State\Protocol\DeferredFragments;
 use Polidog\Rosanna\State\Protocol\SessionSnapshots;
 use Polidog\Rosanna\State\Snapshot\SnapshotBehavior;
 use Polidog\Rosanna\State\Snapshot\SnapshotSerializer;
@@ -33,26 +38,6 @@ use Polidog\Rosanna\State\Storage\NativeSession;
  */
 final class RosannaState
 {
-    /**
-     * 外部の rosanna.js が読めないときだけ defer を 1 回取得する。フォームは通常の POST に落ちる。
-     * CSP の nonce で動くよう、インラインのイベントハンドラを使わない。defer の script は DOMContentLoaded の前に動くので、
-     * その時点で reloadDefer がなければ読み込みに失敗している。
-     */
-    private const DEFER_FALLBACK_SCRIPT = <<<'JS'
-        (function(){
-        window.Rosanna=window.Rosanna||{};
-        var B='data-rosanna-defer-fallback-loading';
-        function warn(m,u){if(window.console&&console.warn)console.warn('[Rosanna] '+m,u);}
-        function prefix(){var r=window.Rosanna,p=r&&typeof r.deferPrefix==='string'&&r.deferPrefix!==''?r.deferPrefix:'/_defer';return p.replace(/\/+$/,'');}
-        function allowed(url){try{var u=new URL(url,location.href);return u.origin===location.origin&&u.pathname.indexOf(prefix()+'/')===0;}catch(e){return false;}}
-        function scan(root){root.querySelectorAll('[data-rosanna-defer-url]:not([data-rosanna-defer-loaded]):not(['+B+'])').forEach(load);}
-        function place(el,html){var t=document.createElement('template');t.innerHTML=html;scan(t.content);if(el.hasAttribute('data-rosanna-defer-name')){el.replaceChildren(t.content);el.setAttribute('data-rosanna-defer-loaded','');}else{el.replaceWith(t.content);}}
-        function load(el){var url=el.getAttribute('data-rosanna-defer-url');if(!allowed(url)){warn('refusing defer fetch outside the same-origin defer prefix',url);return;}el.setAttribute(B,'');el.setAttribute('aria-busy','true');fetch(url,{method:'GET',headers:{'X-Rosanna-Defer':'1'},credentials:'same-origin'}).then(function(r){var type=(r.headers.get('content-type')||'').trim().toLowerCase();if(!r.ok||type.indexOf('text/html')!==0||(r.url&&!allowed(r.url)))return null;return r.text();}).then(function(html){if(html!==null)place(el,html);}).catch(function(e){warn('defer fallback fetch failed',e);}).finally(function(){el.removeAttribute(B);el.removeAttribute('aria-busy');});}
-        function check(){setTimeout(function(){if(!(window.Rosanna&&window.Rosanna.reloadDefer))scan(document);},0);}
-        if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',check,{once:true});else check();
-        })();
-        JS;
-
     private ComponentRegistry $registry;
 
     private Rosanna $rosanna;
@@ -65,7 +50,7 @@ final class RosannaState
 
     private bool $trustProxyHeaders = false;
 
-    private string $deferPrefix = RendererFactory::DEFAULT_DEFER_PREFIX;
+    private string $deferPrefix = DeferredEndpoint::DEFAULT_PREFIX;
 
     private DeferredRegistry $deferred;
 
@@ -82,6 +67,7 @@ final class RosannaState
         $this->rosanna = new Rosanna(
             static fn(RenderScope $scope): RenderExtension => StateScope::of($scope)->renderers->extension('_root_'),
             $this->scopeFor(...),
+            static fn(RenderScope $scope): DeferredRenderer => StateScope::of($scope)->renderers->placeholders(),
         );
         $this->deferred = new DeferredRegistry();
     }
@@ -194,11 +180,7 @@ final class RosannaState
     /** @throws \InvalidArgumentException `/` で始まらないか、ルートそのものを指すとき */
     public function setDeferPrefix(string $prefix): self
     {
-        $normalized = rtrim($prefix, '/');
-        if ($normalized === '' || !str_starts_with($normalized, '/') || str_starts_with($normalized, '//')) {
-            throw new \InvalidArgumentException("Defer prefix must be a path like '/_defer', got: '{$prefix}'");
-        }
-        $this->deferPrefix = $normalized;
+        $this->deferPrefix = DeferredEndpoint::normalizePrefix($prefix);
 
         return $this;
     }
@@ -327,26 +309,23 @@ final class RosannaState
      */
     public function handleDeferred(Request $request): ?Response
     {
-        return $this->deferredEndpoint()->handle($request);
+        $response = new DeferredEndpoint($this->deferred, $this->deferPrefix, $this->deferredFragments($request))
+            ->handle(new DeferRequest($request->method, $request->path, $request->query, $request->queryString));
+
+        return $response === null ? null : new Response($response->status, $response->headers, $response->body);
     }
 
     /**
      * RT-12.6。$src はエスケープし、$deferPrefix は JS の文字列として `</` で script を閉じられないように出す。
-     * setDeferPrefix() を使うアプリは同じ値を渡す。
+     * setDeferPrefix() を使うアプリは同じ値を渡す。rosanna-defer.js は rosanna.js の後に読み込む。
      */
-    public static function renderClientScript(string $src = '/rosanna.js', ?string $deferPrefix = null, ?string $nonce = null): string
+    public static function renderClientScript(string $src = '/rosanna.js', ?string $deferPrefix = null, ?string $nonce = null, string $deferSrc = ClientScript::DEFAULT_SRC): string
     {
         $nonceAttribute = $nonce === null ? '' : ' nonce="' . self::escape($nonce) . '"';
 
-        $prefixScript = '';
-        if ($deferPrefix !== null) {
-            $json = json_encode($deferPrefix, JSON_THROW_ON_ERROR | JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
-            $prefixScript = "<script{$nonceAttribute}>window.Rosanna=window.Rosanna||{};window.Rosanna.deferPrefix={$json};</script>\n";
-        }
-
-        return $prefixScript
-            . "<script{$nonceAttribute}>" . self::DEFER_FALLBACK_SCRIPT . "</script>\n"
-            . '<script src="' . self::escape($src) . '" defer' . $nonceAttribute . '></script>';
+        return ClientScript::inline($deferPrefix, $nonce)
+            . '<script src="' . self::escape($src) . '" defer' . $nonceAttribute . "></script>\n"
+            . ClientScript::tag($deferSrc, $nonce);
     }
 
     /** @internal ActionHandler のため */
@@ -356,9 +335,9 @@ final class RosannaState
     }
 
     /** @internal ActionHandler のため */
-    public function deferredEndpoint(): DeferredEndpoint
+    public function deferredFragments(Request $request): DeferredFragments
     {
-        return new DeferredEndpoint($this, $this->deferred, $this->deferPrefix);
+        return new DeferredFragments($this, $this->registry, $this->deferred, $request);
     }
 
     /**

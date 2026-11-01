@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Polidog\Rosanna\State\Tests\Runtime;
 
 use PHPUnit\Framework\TestCase;
+use Polidog\Rosanna\Defer\Defer;
 use Polidog\Rosanna\Html\H;
 use Polidog\Rosanna\Runtime\Element;
 use Polidog\Rosanna\Runtime\RenderContext;
 use Polidog\Rosanna\Runtime\RequestLifecycle;
 use Polidog\Rosanna\State\Action;
-use Polidog\Rosanna\State\Component\Defer;
 use Polidog\Rosanna\State\ComponentState;
 
 use function Polidog\Rosanna\State\fc;

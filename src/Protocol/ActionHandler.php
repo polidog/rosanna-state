@@ -493,7 +493,7 @@ final class ActionHandler
             return WrapperSearch::find(
                 $roots,
                 $context->instanceId,
-                fn(string $name, array $props): ?Element => $this->app->deferredEndpoint()->renderForReplay($context->request, $name, $props),
+                fn(string $name, array $props): ?Element => $this->app->deferredFragments($context->request)->renderForReplay($name, $props),
                 $context->deferName,
                 $context->deferQuery,
             );

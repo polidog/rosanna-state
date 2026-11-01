@@ -7,7 +7,7 @@ declare(strict_types=1);
 use Polidog\Rosanna\Html\H;
 use Polidog\Rosanna\Runtime\Element;
 use Polidog\Rosanna\Runtime\RenderContext;
-use Polidog\Rosanna\State\Component\Defer;
+use Polidog\Rosanna\Defer\Defer;
 
 use function Polidog\Rosanna\State\fc;
 
@@ -68,7 +68,7 @@ function serve(RosannaState $app, Request $request, \Closure $page, SnapshotBeha
     $src = is_string($_GET['src'] ?? null) ? $_GET['src'] : '/rosanna.js';
     // セッションを読むので出力より先に描画する
     $body = RenderContext::run($app->scope($request), static fn(): string => $app->renderElement($page()));
-    echo '<!doctype html><html><head><meta charset="utf-8"><title>fixture</title>', RosannaState::renderClientScript($src, null, $nonce), '</head><body>', $body, $tail, '</body></html>';
+    echo '<!doctype html><html><head><meta charset="utf-8"><title>fixture</title>', RosannaState::renderClientScript($src, null, $nonce, $src === '/rosanna.js' ? '/rosanna-defer.js' : $src), '</head><body>', $body, $tail, '</body></html>';
 }
 
 /**
@@ -299,6 +299,12 @@ switch ($scene) {
     case 'rosanna.js':
         header('Content-Type: text/javascript');
         readfile(__DIR__ . '/../../../public/rosanna.js');
+
+        return;
+
+    case 'rosanna-defer.js':
+        header('Content-Type: text/javascript');
+        readfile(\Polidog\Rosanna\Defer\ClientScript::path());
 
         return;
 

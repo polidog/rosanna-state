@@ -7,8 +7,9 @@
 | 文書 | 範囲 | 要件 ID |
 |---|---|---|
 | [01-runtime.md](01-runtime.md) | フォームの束縛と配置、Component、hooks、インスタンス ID、状態層のスコープ、`RosannaState` の API、publish | `RT-` (RT-4〜8、RT-9.4、RT-9.5、RT-10、RT-12、RT-13) |
-| [02-state-and-actions.md](02-state-and-actions.md) | Storage、Snapshot、Action、署名、CSRF、バージョン照合、defer、`rosanna.js` | `RQ-` `ST-` `SN-` `AC-` `SG-` `CS-` `VR-` `HD-` `DF-` `JS-` |
+| [02-state-and-actions.md](02-state-and-actions.md) | Storage、Snapshot、Action、署名、CSRF、バージョン照合、defer の状態層の部分、`rosanna.js` | `RQ-` `ST-` `SN-` `AC-` `SG-` `CS-` `VR-` `HD-` `DF-` `JS-` |
 | [本体の 01-runtime.md](https://github.com/polidog/rosanna/blob/main/docs/spec/01-runtime.md) | `H`、Renderer、`RenderExtension`、描画スコープ、PSX の読み込み、`Rosanna` の描画 API | `RT-` (RT-0〜3、RT-9、RT-11、RT-12 の本体の部分、RT-13 の `compile`、RT-14) |
+| [`polidog/rosanna-defer` の 01-defer.md](https://github.com/polidog/rosanna-defer/blob/main/docs/spec/01-defer.md) | defer のエンドポイント、プレースホルダー、`rosanna-defer.js` | `DF-`、`JS-16`〜`JS-20` |
 | [本体の 03-compiler.md](https://github.com/polidog/rosanna/blob/main/docs/spec/03-compiler.md) | PSX、コンパイラ | `CP-` |
 
 ## 本体との契約

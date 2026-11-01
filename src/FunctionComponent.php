@@ -4,16 +4,17 @@ declare(strict_types=1);
 
 namespace Polidog\Rosanna\State;
 
+use Polidog\Rosanna\Defer\DeclaresDefer;
+use Polidog\Rosanna\Defer\Defer;
 use Polidog\Rosanna\Runtime\AcceptsArgumentResolver;
 use Polidog\Rosanna\Runtime\Element;
-use Polidog\Rosanna\State\Component\Defer;
 use Polidog\Rosanna\State\Storage\SnapshotPersist;
 use Polidog\Rosanna\State\Storage\StorageType;
 
 /**
  * `fc()` が返す、インスタンスの state を持つコンポーネント。
  */
-final class FunctionComponent implements AcceptsArgumentResolver
+final class FunctionComponent implements AcceptsArgumentResolver, DeclaresDefer
 {
     /** @var (\Closure(array<string, mixed>): list<mixed>)|null */
     private ?\Closure $argumentResolver = null;
@@ -29,6 +30,11 @@ final class FunctionComponent implements AcceptsArgumentResolver
         if ($persist !== null && $storageType !== StorageType::Snapshot) {
             throw new \InvalidArgumentException('fc(): persist only applies to Snapshot storage.');
         }
+    }
+
+    public function deferDeclaration(): ?Defer
+    {
+        return $this->defer;
     }
 
     /**
