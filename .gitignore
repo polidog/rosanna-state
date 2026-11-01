@@ -1,0 +1,10 @@
+/vendor/
+composer.lock
+.phpunit.cache/
+.php-cs-fixer.cache
+.DS_Store
+
+/var/cache/psx/
+
+/node_modules/
+/test-results/

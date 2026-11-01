@@ -1,0 +1,12 @@
+{
+  "name": "rosanna-browser-tests",
+  "private": true,
+  "description": "Real browser tests for Rosanna: actual PHP (php -S) and public/rosanna.js, driven by Playwright.",
+  "license": "MIT",
+  "scripts": {
+    "test:browser": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1"
+  }
+}
