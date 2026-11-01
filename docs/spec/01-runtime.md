@@ -330,7 +330,7 @@ final class ComponentRenderer
 **振る舞い**
 
 - **RT-9.4** 分割設計の `renderingDeferredEndpoint: bool` では足りない。入れ子の defer をプレースホルダーにするには「対象のコンポーネントかどうか」の判定が要るので、`StateScope` のメソッドにする
-  (`usePHP/src/UsePHP.php:416`、`tests/Runtime/NestedDeferTest.php`)。
+  (`usePHP/src/UsePHP.php:416`、`tests/Runtime/FunctionComponentTest.php` の `testRT62AtItsEndpointTheTargetRendersAndNestedDeferStaysAPlaceholder`)。
 - **RT-9.5** `RendererFactory` は serializer、defer の prefix、CSRF トークン、署名を必ず揃えて `ComponentRenderer` を作る。Relayer の `LayoutRenderer` が `deferPrefix` を渡せない問題を解消する
   (分割設計「Relayer が現在…」)。`rootId` は action の `componentId` がないときの送信先になる (`Renderer.php:633`) ので、状態層にある。本体の `Renderer` は引数なしで使え、`rootId` を知らない。Renderer は描画時のバージョンを action の JSON に入れる (02 の VR-1)。ここでは `ActionFormExtension` が入れる。
 - **RT-9.6** (状態層の部分) `bootstrap.php` が `RequestLifecycle::onReset('rosanna-state', ...)` で `ComponentState` のインスタンス、Storage、描画パス、セッションの消去を登録する。呼ぶのは本体の `RequestLifecycle::reset()` だけで、状態層に別の入口を作らない。セッションは書き込んで閉じ、ID を手放す。PHP は閉じた後も ID を覚えていて次の `session_start()` で Cookie より優先するので、閉じるだけでは次の訪問者が前のセッションに入る。次の開始では `$_COOKIE` の ID を使う。host が `session_id()` で決めた ID は変えない。
@@ -404,7 +404,7 @@ final class RosannaState
 **振る舞い**
 
 - **RT-12.1** `render` と `createElement` の `$componentName` は、登録名とクラス名のどちらでもよく、結果は同じインスタンス ID と state になる
-  (`usePHP/src/UsePHP.php:578-596`、`tests/Runtime/ComponentNameResolutionTest.php`)。
+  (`usePHP/src/UsePHP.php:578-596`、`RosannaTest::testRT121ClassNameAndRegisteredNameAreTheSameInstance`)。
 - **RT-12.2** 登録されていないものは `LogicException`。未登録のクラスを副作用で登録しない。失敗してもスコープとパスを壊さない。
 - **RT-12.3** (状態層の部分) 3 つの入口の違いは次のとおり (`UsePHP.php:2813-2930`)。いずれも自分のスコープで実行し、親の state、外側のスコープを `finally` で戻す。
 
@@ -434,8 +434,8 @@ echo $app->render(Counter::class);
 
 **テスト**
 
-- クラス名と登録名で ID と state が同じこと、解決できない名前の例外 (`ComponentNameResolutionTest.php`)。
-- 入れ子の `render` で外側のスコープ、state、パスが戻ること (`AppContextRestoreTest.php`、`NestedRenderRestoreTest.php`)。
+- クラス名と登録名で ID と state が同じこと、解決できない名前の例外 (`RosannaTest::testRT121*`、`testRT122*`)。
+- 入れ子の `render` で外側のスコープ、state、パスが戻ること (`RosannaTest::testRT123*`、`NestedRenderRestoreTest.php`)。
 - README の埋め込みの例を実際に動かすこと (`tests/Integration/ReadmeExamplesTest.php`)。
 - `rosanna compile` だけの成果物と、`rosanna-state compile` の後に `rosanna compile` を実行した成果物で `loadComponentManifest()` が例外になること (02 の DF-13、本体 03 の CP-136、CP-144)。
 

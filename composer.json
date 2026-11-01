@@ -17,6 +17,7 @@
     ],
     "require": {
         "php": ">=8.5",
+        "ext-session": "*",
         "polidog/rosanna": "dev-split-state-layer"
     },
     "require-dev": {
