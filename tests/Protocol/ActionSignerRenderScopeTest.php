@@ -33,18 +33,18 @@ final class ActionSignerRenderScopeTest extends TestCase
     public function testSG8SignOutsideAnyScopeIsLogicException(): void
     {
         $this->expectException(\LogicException::class);
-        new ActionSigner('secret')->sign(self::ID, self::JSON);
+        new ActionSigner('secret-fixture-key-1')->sign(self::ID, self::JSON);
     }
 
     public function testSG8VerifyOutsideAnyScopeIsLogicException(): void
     {
         $this->expectException(\LogicException::class);
-        new ActionSigner('secret')->verify(self::ID, self::JSON, 'x');
+        new ActionSigner('secret-fixture-key-1')->verify(self::ID, self::JSON, 'x');
     }
 
     public function testSG8SignUsesTheSigningScope(): void
     {
-        $signer = new ActionSigner('secret', ['cart']);
+        $signer = new ActionSigner('secret-fixture-key-1', ['cart']);
 
         $page = RenderContext::run(self::scope('page:/p'), static fn() => $signer->sign(self::ID, self::JSON));
         self::assertSame($signer->sign(self::ID, self::JSON, '/p'), $page);
@@ -56,7 +56,7 @@ final class ActionSignerRenderScopeTest extends TestCase
 
     public function testSG8PagePathWinsOverTheScope(): void
     {
-        $signer = new ActionSigner('secret');
+        $signer = new ActionSigner('secret-fixture-key-1');
 
         $signature = RenderContext::run(self::scope('page:/p'), static fn() => $signer->sign(self::ID, self::JSON, '/other'));
 

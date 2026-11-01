@@ -36,7 +36,7 @@ for (const kind of ['sessionStorage', 'localStorage'] as const) {
       await expect(count(page, 'p')).toHaveText('1');
       expect(await saved(page, kind)).not.toBeNull();
 
-      await context.addCookies([{ name: 'fixture_secret', value: 'rotated', url: baseURL as string }]);
+      await context.addCookies([{ name: 'fixture_secret', value: 'rotated-fixture-secret', url: baseURL as string }]);
       posts.clear();
       const rejected = page.waitForResponse((r) => r.request().method() === 'POST');
       await page.reload();

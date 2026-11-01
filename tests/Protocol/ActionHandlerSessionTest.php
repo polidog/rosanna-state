@@ -32,7 +32,7 @@ final class ActionHandlerSessionTest extends TestCase
         $_SESSION['_rosanna_csrf'] = 'token';
         session_write_close();
 
-        $app = new Rosanna()->setSnapshotSecret('s');
+        $app = new Rosanna()->setSnapshotSecret('s-fixture-secret-key');
         $json = (string) json_encode([
             'type' => 'setState',
             'payload' => ['index' => 0, 'patch' => ['r', 'next'], 'base' => StateDiff::hash(['original'])],

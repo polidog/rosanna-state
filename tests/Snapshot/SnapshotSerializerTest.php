@@ -12,7 +12,7 @@ use Polidog\Rosanna\Snapshot\SnapshotVerificationException;
 
 final class SnapshotSerializerTest extends TestCase
 {
-    private const SECRET = 'test-secret';
+    private const SECRET = 'test-fixture-key-888';
 
     private static function serializer(string $context = ''): SnapshotSerializer
     {
@@ -55,6 +55,18 @@ final class SnapshotSerializerTest extends TestCase
         new SnapshotSerializer('');
     }
 
+    public function testSN4KeyShorterThanTheMinimumIsRejected(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        new SnapshotSerializer(str_repeat('k', SnapshotSerializer::MIN_SECRET_BYTES - 1));
+    }
+
+    public function testSN4KeyOfTheMinimumLengthIsAccepted(): void
+    {
+        new SnapshotSerializer(str_repeat('k', SnapshotSerializer::MIN_SECRET_BYTES));
+        $this->addToAssertionCount(1);
+    }
+
     public function testSN3MissingChecksumIsRejected(): void
     {
         $this->expectException(SnapshotVerificationException::class);
@@ -64,7 +76,7 @@ final class SnapshotSerializerTest extends TestCase
     public function testSN3AnotherKeyIsRejected(): void
     {
         $this->expectException(SnapshotVerificationException::class);
-        new SnapshotSerializer('other')->deserialize(self::serializer()->serialize(self::sample()));
+        new SnapshotSerializer('other-fixture-key-22')->deserialize(self::serializer()->serialize(self::sample()));
     }
 
     /** @return iterable<string, array{\Closure(array<string, mixed>): array<string, mixed>}> */

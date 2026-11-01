@@ -9,6 +9,7 @@ use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
 use Polidog\Rosanna\Http\Request;
 use Polidog\Rosanna\Protocol\ActionSigner;
+use Polidog\Rosanna\Snapshot\SnapshotSerializer;
 use Polidog\Rosanna\Tests\Storage\SessionTestHelper;
 
 final class ActionSignerTest extends TestCase
@@ -29,17 +30,23 @@ final class ActionSignerTest extends TestCase
         new ActionSigner('');
     }
 
+    public function testSG9KeyShorterThanTheMinimumIsRejected(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        new ActionSigner(str_repeat('k', SnapshotSerializer::MIN_SECRET_BYTES - 1));
+    }
+
     public function testSG1SignatureFormatIsTheDocumentedInput(): void
     {
         self::assertSame(
-            hash_hmac('sha256', "rosanna-action\0page:/p\0\0" . self::ID . "\0" . self::JSON, 'secret'),
-            new ActionSigner('secret')->sign(self::ID, self::JSON, '/p'),
+            hash_hmac('sha256', "rosanna-action\0page:/p\0\0" . self::ID . "\0" . self::JSON, 'secret-fixture-key-1'),
+            new ActionSigner('secret-fixture-key-1')->sign(self::ID, self::JSON, '/p'),
         );
     }
 
     public function testSG1ChangingInstanceJsonOrPathFailsVerification(): void
     {
-        $signer = new ActionSigner('secret');
+        $signer = new ActionSigner('secret-fixture-key-1');
         $signature = (string) $signer->sign(self::ID, self::JSON, '/p');
 
         self::assertTrue($signer->verify(self::ID, self::JSON, $signature, '/p'));
@@ -48,14 +55,14 @@ final class ActionSignerTest extends TestCase
         self::assertFalse($signer->verify(self::ID, self::JSON, $signature, '/other'));
         self::assertFalse($signer->verify(self::ID, self::JSON, $signature . '0', '/p'));
         self::assertFalse($signer->verify(self::ID, self::JSON, '', '/p'));
-        self::assertFalse(new ActionSigner('other')->verify(self::ID, self::JSON, $signature, '/p'));
+        self::assertFalse(new ActionSigner('other-fixture-key-22')->verify(self::ID, self::JSON, $signature, '/p'));
     }
 
     #[RunInSeparateProcess]
     public function testSG1ChangingTheSessionFailsVerification(): void
     {
         self::isolateSessions();
-        $signer = new ActionSigner('secret');
+        $signer = new ActionSigner('secret-fixture-key-1');
 
         session_id('sessiona');
         session_start();
@@ -99,7 +106,7 @@ final class ActionSignerTest extends TestCase
         self::isolateSessions();
         session_start();
 
-        new ActionSigner('secret')->sign(self::ID, self::JSON, '/p');
+        new ActionSigner('secret-fixture-key-1')->sign(self::ID, self::JSON, '/p');
 
         self::assertArrayNotHasKey('_rosanna_action_key', $_SESSION);
     }
@@ -109,7 +116,7 @@ final class ActionSignerTest extends TestCase
     {
         self::isolateSessions();
 
-        self::assertIsString(new ActionSigner('secret')->sign(self::ID, self::JSON, '/p'));
+        self::assertIsString(new ActionSigner('secret-fixture-key-1')->sign(self::ID, self::JSON, '/p'));
         self::assertSame(PHP_SESSION_NONE, session_status());
     }
 
@@ -120,11 +127,11 @@ final class ActionSignerTest extends TestCase
         self::seedSession('abc123', ['x' => 1]);
         self::visitorWithCookie('abc123');
 
-        $signature = new ActionSigner('secret')->sign(self::ID, self::JSON, '/p');
+        $signature = new ActionSigner('secret-fixture-key-1')->sign(self::ID, self::JSON, '/p');
 
         self::assertSame(PHP_SESSION_ACTIVE, session_status());
         self::assertSame(
-            hash_hmac('sha256', "rosanna-action\0page:/p\0abc123\0" . self::ID . "\0" . self::JSON, 'secret'),
+            hash_hmac('sha256', "rosanna-action\0page:/p\0abc123\0" . self::ID . "\0" . self::JSON, 'secret-fixture-key-1'),
             $signature,
         );
     }
@@ -166,7 +173,7 @@ final class ActionSignerTest extends TestCase
     #[DataProvider('samePage')]
     public function testSG5SamePage(string $signedFor, string $postedTo): void
     {
-        $signer = new ActionSigner('secret');
+        $signer = new ActionSigner('secret-fixture-key-1');
 
         self::assertTrue($signer->verify(self::ID, self::JSON, (string) $signer->sign(self::ID, self::JSON, $signedFor), $postedTo));
     }
@@ -185,14 +192,14 @@ final class ActionSignerTest extends TestCase
     #[DataProvider('otherPage')]
     public function testSG5OtherPageFails(string $signedFor, string $postedTo): void
     {
-        $signer = new ActionSigner('secret');
+        $signer = new ActionSigner('secret-fixture-key-1');
 
         self::assertFalse($signer->verify(self::ID, self::JSON, (string) $signer->sign(self::ID, self::JSON, $signedFor), $postedTo));
     }
 
     public function testSG5ForRequestUsesThePathWithoutTheQuery(): void
     {
-        $signer = new ActionSigner('secret');
+        $signer = new ActionSigner('secret-fixture-key-1');
         $signature = (string) $signer->forRequest(new Request('GET', '/p?a=1', '/p', 'a=1'))->sign(self::ID, self::JSON);
 
         self::assertTrue($signer->forRequest(new Request('POST', '/p?b=2', '/p', 'b=2'))->verify(self::ID, self::JSON, $signature));
@@ -201,7 +208,7 @@ final class ActionSignerTest extends TestCase
 
     public function testSG6DeferFormsPassOnAnyPageWhenRegistered(): void
     {
-        $signer = new ActionSigner('secret', ['list', 'cart']);
+        $signer = new ActionSigner('secret-fixture-key-1', ['list', 'cart']);
         $endpoint = $signer->forRequest(self::request('/_defer/cart'), 'cart');
 
         self::assertSame('defer:cart', $endpoint->signingScope());
@@ -213,17 +220,17 @@ final class ActionSignerTest extends TestCase
 
     public function testSG6UnregisteredDeferIsNotAccepted(): void
     {
-        $signature = (string) new ActionSigner('secret', ['cart'])
+        $signature = (string) new ActionSigner('secret-fixture-key-1', ['cart'])
             ->forRequest(self::request('/_defer/gone'), 'gone')
             ->sign(self::ID, self::JSON);
 
-        self::assertFalse(new ActionSigner('secret', ['cart'])->forRequest(self::request('/p'))->verify(self::ID, self::JSON, $signature));
-        self::assertFalse(new ActionSigner('secret')->forRequest(self::request('/p'))->verify(self::ID, self::JSON, $signature));
+        self::assertFalse(new ActionSigner('secret-fixture-key-1', ['cart'])->forRequest(self::request('/p'))->verify(self::ID, self::JSON, $signature));
+        self::assertFalse(new ActionSigner('secret-fixture-key-1')->forRequest(self::request('/p'))->verify(self::ID, self::JSON, $signature));
     }
 
     public function testSG6PageSignatureIsNotADeferSignature(): void
     {
-        $signer = new ActionSigner('secret', ['cart']);
+        $signer = new ActionSigner('secret-fixture-key-1', ['cart']);
         $signature = (string) $signer->sign(self::ID, self::JSON, '/guarded');
 
         self::assertFalse($signer->forRequest(self::request('/public'))->verify(self::ID, self::JSON, $signature));
@@ -231,7 +238,7 @@ final class ActionSignerTest extends TestCase
 
     public function testSG7NoRequestFieldChoosesTheScope(): void
     {
-        $signer = new ActionSigner('secret');
+        $signer = new ActionSigner('secret-fixture-key-1');
         $signature = (string) $signer->sign(self::ID, self::JSON, '/guarded');
 
         $request = new Request(
@@ -251,7 +258,7 @@ final class ActionSignerTest extends TestCase
     {
         $_SERVER['REQUEST_URI'] = '/en/page';
         try {
-            $signer = new ActionSigner('secret');
+            $signer = new ActionSigner('secret-fixture-key-1');
             $rewritten = new Request('POST', '/en/page', '/page', '');
             $signature = (string) $signer->sign(self::ID, self::JSON, '/page');
 
@@ -263,7 +270,7 @@ final class ActionSignerTest extends TestCase
 
     public function testSG8PagePathWinsOverTheBoundRequest(): void
     {
-        $signer = new ActionSigner('secret');
+        $signer = new ActionSigner('secret-fixture-key-1');
         $bound = $signer->forRequest(self::request('/bound'));
 
         self::assertSame($signer->sign(self::ID, self::JSON, '/given'), $bound->sign(self::ID, self::JSON, '/given'));
@@ -272,7 +279,7 @@ final class ActionSignerTest extends TestCase
 
     public function testRQ3ForRequestLeavesTheOriginalUntouched(): void
     {
-        $base = new ActionSigner('secret');
+        $base = new ActionSigner('secret-fixture-key-1');
         $bound = $base->forRequest(self::request('/a'));
 
         self::assertNotSame($base, $bound);
@@ -287,7 +294,7 @@ final class ActionSignerTest extends TestCase
 
     public function testSeparatorsCannotBeShifted(): void
     {
-        $signer = new ActionSigner('secret');
+        $signer = new ActionSigner('secret-fixture-key-1');
         $signature = (string) $signer->sign('a#b', self::JSON, '/p');
 
         self::assertFalse($signer->verify("a#b\0", self::JSON, $signature, '/p'));

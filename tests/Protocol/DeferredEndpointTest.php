@@ -48,7 +48,7 @@ final class DeferredEndpointTest extends TestCase
 
     private static function app(): Rosanna
     {
-        return new Rosanna()->setSnapshotSecret('defer-secret')
+        return new Rosanna()->setSnapshotSecret('defer-fixture-key-66')
             ->registerComponent('App\\Echo', self::echoProps())
             ->registerDeferred('echo', 'App\\Echo');
     }
@@ -100,7 +100,7 @@ final class DeferredEndpointTest extends TestCase
 
     public function testDF3RegisteringTheSameClassAgainDoesNothing(): void
     {
-        $app = new Rosanna()->setSnapshotSecret('s')->register(DeferredPanel::class)->register(DeferredPanel::class);
+        $app = new Rosanna()->setSnapshotSecret('s-fixture-secret-key')->register(DeferredPanel::class)->register(DeferredPanel::class);
 
         $response = $app->handleDeferred(self::get('/_defer/panel'));
 
@@ -143,7 +143,7 @@ final class DeferredEndpointTest extends TestCase
         self::assertSame('private, max-age=0', $default->headers['Cache-Control']);
         self::assertSame('text/html; charset=UTF-8', $default->headers['Content-Type']);
 
-        $withPanel = new Rosanna()->setSnapshotSecret('s')->register(DeferredPanel::class)->handleDeferred(self::get('/_defer/panel'));
+        $withPanel = new Rosanna()->setSnapshotSecret('s-fixture-secret-key')->register(DeferredPanel::class)->handleDeferred(self::get('/_defer/panel'));
         self::assertNotNull($withPanel);
         self::assertSame('private, max-age=30', $withPanel->headers['Cache-Control']);
     }
@@ -214,7 +214,7 @@ final class DeferredEndpointTest extends TestCase
     /** DF-10 エンドポイントの描画の間の署名は defer:{name} で、どのページへの POST でも通る (SG-6) */
     public function testDF10EndpointFormsAreSignedForTheDeferScope(): void
     {
-        $app = new Rosanna()->setSnapshotSecret('defer-secret')
+        $app = new Rosanna()->setSnapshotSecret('defer-fixture-key-66')
             ->registerComponent('App\\C', fc(static function (): Element {
                 [$n, $set] = useState(0);
 
@@ -234,7 +234,7 @@ final class DeferredEndpointTest extends TestCase
         }
 
         // 登録がなければ通らない
-        $unregistered = new Rosanna()->setSnapshotSecret('defer-secret');
+        $unregistered = new Rosanna()->setSnapshotSecret('defer-fixture-key-66');
         $post = $unregistered->actions()->handle(self::post($fields, uri: '/one'));
         self::assertNotNull($post);
         self::assertSame('Invalid action signature', $post->body);
@@ -270,7 +270,7 @@ final class DeferredEndpointTest extends TestCase
 
     public function testClassEndpointSeesTheQueryInGetAndRestoresIt(): void
     {
-        $app = new Rosanna()->setSnapshotSecret('s')->register(DeferredPanel::class);
+        $app = new Rosanna()->setSnapshotSecret('s-fixture-secret-key')->register(DeferredPanel::class);
         $outer = $_GET;
 
         $response = $app->handleDeferred(self::get('/_defer/panel?topic=a'));

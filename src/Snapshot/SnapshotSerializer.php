@@ -12,16 +12,20 @@ use Polidog\Rosanna\Runtime\Snapshot;
  */
 final class SnapshotSerializer
 {
-    /** @throws \InvalidArgumentException 鍵が空のとき (SN-4) */
+    /** 署名は HTML に出るので、短い鍵は手元で総当たりできる (SN-4) */
+    public const MIN_SECRET_BYTES = 16;
+
+    /** @throws \InvalidArgumentException 鍵が短いとき (SN-4) */
     public function __construct(
         #[\SensitiveParameter]
         private readonly string $secretKey,
         private readonly string $context = '',
     ) {
-        if ($secretKey === '') {
-            throw new \InvalidArgumentException(
-                'SnapshotSerializer requires a non-empty secret key. Generate one with bin2hex(random_bytes(32)).',
-            );
+        if (strlen($secretKey) < self::MIN_SECRET_BYTES) {
+            throw new \InvalidArgumentException(sprintf(
+                'SnapshotSerializer requires a secret key of at least %d bytes. Generate one with bin2hex(random_bytes(32)).',
+                self::MIN_SECRET_BYTES,
+            ));
         }
     }
 

@@ -48,7 +48,7 @@ final class RosannaTest extends TestCase
 
     public function testRT121ClassNameAndRegisteredNameAreTheSameInstance(): void
     {
-        $app = new Rosanna()->setSnapshotSecret('s')->register(MemoryCounter::class);
+        $app = new Rosanna()->setSnapshotSecret('s-fixture-secret-key')->register(MemoryCounter::class);
 
         self::assertStringContainsString('data-rosanna="MemoryCounter#a"', $app->render(MemoryCounter::class, 'a'));
         self::assertStringContainsString('data-rosanna="MemoryCounter#a"', $app->render('MemoryCounter', 'a'));
@@ -81,7 +81,7 @@ final class RosannaTest extends TestCase
 
     public function testRT123RenderStartsAPassAndGivesItBack(): void
     {
-        $app = new Rosanna()->setSnapshotSecret('s')->register(MemoryCounter::class);
+        $app = new Rosanna()->setSnapshotSecret('s-fixture-secret-key')->register(MemoryCounter::class);
 
         // 新しいパスなので何度描画しても #0 になる
         self::assertStringContainsString('MemoryCounter#0', $app->render(MemoryCounter::class));
@@ -93,7 +93,7 @@ final class RosannaTest extends TestCase
 
     public function testRT123CreateElementContinuesThePass(): void
     {
-        $app = new Rosanna()->setSnapshotSecret('s')->register(MemoryCounter::class);
+        $app = new Rosanna()->setSnapshotSecret('s-fixture-secret-key')->register(MemoryCounter::class);
 
         RenderContext::beginRender();
         self::assertSame('MemoryCounter#0', $app->createElement(MemoryCounter::class)->props['data-rosanna']);
@@ -109,7 +109,7 @@ final class RosannaTest extends TestCase
 
     public function testRT123EveryEntryRestoresTheParentStateAndScope(): void
     {
-        $app = new Rosanna()->setSnapshotSecret('s')->register(MemoryCounter::class);
+        $app = new Rosanna()->setSnapshotSecret('s-fixture-secret-key')->register(MemoryCounter::class);
         $parent = ComponentState::getInstance('Parent#0', StorageType::Memory);
 
         foreach ([static fn() => $app->render(MemoryCounter::class), static fn() => $app->createElement(MemoryCounter::class), static fn() => $app->renderElement(H::p(children: 'x'))] as $entry) {
@@ -121,7 +121,7 @@ final class RosannaTest extends TestCase
 
     public function testRT123AThrowingComponentRestoresEverything(): void
     {
-        $app = new Rosanna()->setSnapshotSecret('s')->register(SnapshotCounter::class);
+        $app = new Rosanna()->setSnapshotSecret('s-fixture-secret-key')->register(SnapshotCounter::class);
         $parent = ComponentState::getInstance('Parent#0', StorageType::Memory);
         $outerScope = $app->scope(self::get());
 
@@ -141,7 +141,7 @@ final class RosannaTest extends TestCase
     /** RT-12.3 コンポーネントの中の入れ子の render の後で、親の hooks、スコープ、パスが戻る */
     public function testRT123NestedRenderInsideAComponent(): void
     {
-        $app = new Rosanna()->setSnapshotSecret('s')->register(MemoryCounter::class);
+        $app = new Rosanna()->setSnapshotSecret('s-fixture-secret-key')->register(MemoryCounter::class);
         $scope = $app->scope(self::get());
         $seen = [];
         $parent = fc(static function () use ($app, $scope, &$seen): Element {
@@ -176,7 +176,7 @@ final class RosannaTest extends TestCase
 
     public function testRT124WrapperAttributesMatchOnEveryEntry(): void
     {
-        $app = new Rosanna()->setSnapshotSecret('s')->register(SnapshotCounter::class);
+        $app = new Rosanna()->setSnapshotSecret('s-fixture-secret-key')->register(SnapshotCounter::class);
         $scope = $app->scope(self::get());
 
         [$html, $fromElement] = RenderContext::run($scope, static function () use ($app): array {
@@ -193,7 +193,7 @@ final class RosannaTest extends TestCase
 
     public function testRT125RegisterAddsTheEndpointAndThePsxPlaceholder(): void
     {
-        $app = new Rosanna()->setSnapshotSecret('s')->register(DeferredPanel::class);
+        $app = new Rosanna()->setSnapshotSecret('s-fixture-secret-key')->register(DeferredPanel::class);
 
         $response = $app->handleDeferred(self::get('/_defer/panel'));
         self::assertNotNull($response);
@@ -208,7 +208,7 @@ final class RosannaTest extends TestCase
     /** RT-12.8 host が自分の Request とレイアウトで描画する */
     public function testRT128HostOwnedScope(): void
     {
-        $app = new Rosanna()->setSnapshotSecret('s');
+        $app = new Rosanna()->setSnapshotSecret('s-fixture-secret-key');
         $counter = fc(static fn(): Element => H::p(children: 'x'), key: 'k', storageType: StorageType::Snapshot);
         $scope = $app->scope(self::get('/rewritten'));
 
@@ -221,8 +221,8 @@ final class RosannaTest extends TestCase
     /** RT-12.9 外側のスコープの署名の scope を使う。別のアプリの中でも鍵は自分のもの */
     public function testRT129OuterScopeDecidesTheSigningScope(): void
     {
-        $inner = new Rosanna()->setSnapshotSecret('inner-key')->register(SnapshotCounter::class);
-        $outer = new Rosanna()->setSnapshotSecret('outer-key');
+        $inner = new Rosanna()->setSnapshotSecret('inner-fixture-key-55')->register(SnapshotCounter::class);
+        $outer = new Rosanna()->setSnapshotSecret('outer-fixture-key-44');
         $outerScope = $outer->scope(self::get('/outer-page'));
 
         $html = RenderContext::run($outerScope, static function () use ($inner, $outerScope): string {
@@ -243,7 +243,7 @@ final class RosannaTest extends TestCase
         $outer = $_SERVER['REQUEST_URI'] ?? null;
         $_SERVER['REQUEST_URI'] = '/from-globals?x=1';
         try {
-            $app = new Rosanna()->setSnapshotSecret('k')->register(SnapshotCounter::class);
+            $app = new Rosanna()->setSnapshotSecret('k-fixture-secret-key')->register(SnapshotCounter::class);
             $signature = self::wrapperAttribute($app->render(SnapshotCounter::class), 'data-rosanna-restore-sig', 'SnapshotCounter#0');
 
             self::assertTrue($app->signer()->verify('SnapshotCounter#0', 'restore', $signature, '/from-globals'));
@@ -259,7 +259,7 @@ final class RosannaTest extends TestCase
     public function testSN9SerializerIsNullWithoutASecret(): void
     {
         self::assertNull(new Rosanna()->snapshotSerializer());
-        self::assertNotNull(new Rosanna()->setSnapshotSecret('s')->snapshotSerializer());
+        self::assertNotNull(new Rosanna()->setSnapshotSecret('s-fixture-secret-key')->snapshotSerializer());
     }
 
     public function testSN4EmptySecretIsRefusedAndLeavesTheAppAlone(): void
@@ -276,7 +276,7 @@ final class RosannaTest extends TestCase
     public function testSignerAndScopeFollowLaterConfiguration(): void
     {
         $app = new Rosanna();
-        $app->setSnapshotSecret('later');
+        $app->setSnapshotSecret('later-fixture-key-33');
         $signature = $app->signer()->sign('A#0', '{}', '/p');
         self::assertNotNull($signature);
         self::assertTrue($app->signer()->verify('A#0', '{}', $signature, '/p'));
@@ -344,7 +344,7 @@ final class RosannaTest extends TestCase
         file_put_contents("{$dir}/manifest.php", '<?php return [];');
         file_put_contents("{$dir}/deferred-manifest.php", '<?php return ' . var_export(['404' => ['component' => 'App\\NotFound', 'cacheControl' => null]], true) . ';');
 
-        $app = new Rosanna()->setSnapshotSecret('s')->loadComponentManifest("{$dir}/manifest.php");
+        $app = new Rosanna()->setSnapshotSecret('s-fixture-secret-key')->loadComponentManifest("{$dir}/manifest.php");
 
         // ActionSigner は文字列の名前の一覧を受ける
         self::assertNotNull($app->signer()->sign('A#0', '{}', '/p'));
@@ -354,7 +354,7 @@ final class RosannaTest extends TestCase
     /** RT-9.6 */
     public function testRT96ResetClearsStateScopeAndPass(): void
     {
-        $app = new Rosanna()->setSnapshotSecret('s')->register(MemoryCounter::class);
+        $app = new Rosanna()->setSnapshotSecret('s-fixture-secret-key')->register(MemoryCounter::class);
         RenderContext::beginRender();
         $app->createElement(MemoryCounter::class);
         ComponentState::getInstance('MemoryCounter#0')->setState(0, 5);
@@ -372,7 +372,7 @@ final class RosannaTest extends TestCase
 
     public function testRQ3RenderDoesNotKeepTheRequestOnTheApp(): void
     {
-        $app = new Rosanna()->setSnapshotSecret('s')->register(SnapshotCounter::class);
+        $app = new Rosanna()->setSnapshotSecret('s-fixture-secret-key')->register(SnapshotCounter::class);
 
         $one = RenderContext::run($app->scope(self::get('/one')), static fn(): string => $app->render(SnapshotCounter::class));
         RequestLifecycle::reset();

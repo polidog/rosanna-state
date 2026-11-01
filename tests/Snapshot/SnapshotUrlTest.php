@@ -16,7 +16,7 @@ final class SnapshotUrlTest extends TestCase
 {
     private static function serializer(): SnapshotSerializer
     {
-        return new SnapshotSerializer('secret');
+        return new SnapshotSerializer('secret-fixture-key-1');
     }
 
     private static function snapshot(): Snapshot
@@ -54,7 +54,7 @@ final class SnapshotUrlTest extends TestCase
     public function testSN20APathParseUrlCannotReadIsStillAccepted(): void
     {
         foreach (['/:99999', '/:80', '/item:42', '/a/b:1?keep=1'] as $url) {
-            $with = SnapshotUrl::with($url, new Snapshot('C', '0', [1]), new SnapshotSerializer('k'));
+            $with = SnapshotUrl::with($url, new Snapshot('C', '0', [1]), new SnapshotSerializer('k-fixture-secret-key'));
 
             self::assertStringStartsWith(str_contains($url, '?') ? $url . '&_rosanna_snapshot=' : $url . '?_rosanna_snapshot=', $with);
         }

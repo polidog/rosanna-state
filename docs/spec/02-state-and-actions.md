@@ -241,7 +241,7 @@ public function snapshotSerializer(): ?SnapshotSerializer;
   `ctx` を入れる。JSON のオプションは署名の前後で一定にし、float の `.0` を保つ
   (`usePHP/src/Snapshot/SnapshotSerializer.php:119-136`)。
 - **SN-3** 比較は `hash_equals`。`checksum` のないものは常に失敗 (`usePHP/src/Snapshot/SnapshotSerializer.php:145`)。
-- **SN-4** 空の鍵を受け付けない。署名なしのシリアライザーを作らない (`usePHP/src/Snapshot/SnapshotSerializer.php:57`)。
+- **SN-4** 16 バイト未満の鍵を受け付けない。署名なしのシリアライザーを作らない (`usePHP/src/Snapshot/SnapshotSerializer.php:57`)。署名は HTML に出るので、短い鍵は手元で総当たりでき、復元されると action もスナップショットも偽造できる。長さしか確かめられないので、乱数で作るのは利用者の役割。
 - **SN-5** `deserialize()` は壊れた入力 (JSON でない、オブジェクトでない、`memo` がない、`version` が整数でない) も
   `SnapshotVerificationException` にする。呼び出し側が扱う例外はこれだけとする。**コミット `2ec7012`**
   (`usePHP/src/Snapshot/SnapshotSerializer.php:87-101`)。
@@ -560,6 +560,7 @@ public function signer(): ActionSigner;
 - **SG-7** 比較は `hash_equals`。リクエストのどのフィールドも scope を選ばない (`ActionPageBindingTest::testNoClientFieldChoosesTheBinding`)。
 - **SG-8** 描画中の署名は `RenderScope::$signingScope` (`01-runtime.md` の 9 節) を使い、検証は host が `handle()` に渡した `Request` のパスを使う。`$pagePath` の指定があればそれを優先する。グローバルの `REQUEST_URI` を直接読まない。Relayer はロケールなどの書き換えの
   後のパスを渡す (`SecurityHardeningTest::testRunBindsAnActionToThePathItWasGivenNotTheRawUri`)。
+- **SG-9** `ActionSigner` も SN-4 と同じく 16 バイト未満の鍵を受け付けない。`null` はセッションごとの鍵を意味する (SG-2)。
 
 ### エラー
 

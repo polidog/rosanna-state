@@ -6,6 +6,7 @@ namespace Polidog\Rosanna\Protocol;
 
 use Polidog\Rosanna\Http\Request;
 use Polidog\Rosanna\Runtime\RenderContext;
+use Polidog\Rosanna\Snapshot\SnapshotSerializer;
 use Polidog\Rosanna\Storage\NativeSession;
 
 /**
@@ -25,15 +26,18 @@ final class ActionSigner
     /**
      * @param string|null $secretKey 秘密鍵。null ならセッションごとの鍵を使う (SG-2)
      * @param list<string> $deferNames 登録された defer の名前。受け付ける範囲に入る (SG-6)
-     * @throws \InvalidArgumentException 鍵が空文字のとき
+     * @throws \InvalidArgumentException 鍵が短いとき (SG-9)
      */
     public function __construct(
         #[\SensitiveParameter]
         private readonly ?string $secretKey = null,
         private readonly array $deferNames = [],
     ) {
-        if ($secretKey === '') {
-            throw new \InvalidArgumentException('ActionSigner requires a non-empty secret key, or null for a per-session key.');
+        if ($secretKey !== null && strlen($secretKey) < SnapshotSerializer::MIN_SECRET_BYTES) {
+            throw new \InvalidArgumentException(sprintf(
+                'ActionSigner requires a secret key of at least %d bytes, or null for a per-session key.',
+                SnapshotSerializer::MIN_SECRET_BYTES,
+            ));
         }
     }
 

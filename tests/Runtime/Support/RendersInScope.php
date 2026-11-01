@@ -18,7 +18,7 @@ use Polidog\Rosanna\Snapshot\SnapshotSerializer;
  */
 trait RendersInScope
 {
-    private const SECRET = 'test-secret';
+    private const SECRET = 'test-fixture-key-888';
 
     private static function scope(
         ?string $secret = self::SECRET,

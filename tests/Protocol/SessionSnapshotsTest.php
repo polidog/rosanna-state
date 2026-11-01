@@ -22,7 +22,7 @@ final class SessionSnapshotsTest extends TestCase
         ini_set('error_log', (string) tempnam(sys_get_temp_dir(), 'rosanna-log-'));
         session_start();
 
-        return new SnapshotSerializer('slot-secret');
+        return new SnapshotSerializer('slot-fixture-key-777');
     }
 
     #[RunInSeparateProcess]
