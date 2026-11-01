@@ -5,8 +5,10 @@ import { count, expect, own, test } from './support/fixtures';
 let browser: Browser;
 
 test.beforeAll(async () => {
+  const executablePath = process.env.ROSANNA_CHROMIUM_PATH;
   browser = await chromium.launch({
-    executablePath: process.env.ROSANNA_CHROMIUM_PATH,
+    // 既定の headless shell には bfcache がないので、新しいヘッドレスの Chromium を使う
+    ...(executablePath ? { executablePath } : { channel: 'chromium' }),
     ignoreDefaultArgs: ['--disable-back-forward-cache'],
   });
 });
