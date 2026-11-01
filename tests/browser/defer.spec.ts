@@ -95,16 +95,33 @@ test('JS-19: reloadDefer は前の取得を中断し、古い応答を捨てる'
     if (n === 1) await new Promise<void>((resolve) => release.push(resolve));
     await route.fulfill({ status: 200, contentType: 'text/html', body: `<b class="answer">answer-${n}</b>` }).catch(() => undefined);
   });
-  const reloaded = await page.evaluate(() => {
-    const api = (window as unknown as RosannaApi).Rosanna;
-    api.reloadDefer('counter');
-    return api.reloadDefer('counter');
-  });
-  expect(reloaded).toBe(1);
+  const reload = () => page.evaluate(() => (window as unknown as RosannaApi).Rosanna.reloadDefer('counter'));
+  // 1 回目が届いてから次を呼ぶ。同じ tick で呼ぶと 1 回目はネットワークに届く前に中断されることがある
+  expect(await reload()).toBe(1);
+  await expect.poll(() => served).toBe(1);
+  expect(await reload()).toBe(1);
   await expect(page.locator('.answer')).toHaveText('answer-2');
   release.forEach((resolve) => resolve());
   await page.waitForTimeout(100);
   await expect(page.locator('.answer')).toHaveText('answer-2');
+});
+
+test('JS-19: 同じ tick の reloadDefer でも最後の応答だけを置く', async ({ page }) => {
+  await page.goto('/defer');
+  await page.locator('[data-rosanna-defer-name="counter"][data-rosanna-defer-loaded]').waitFor({ state: 'attached' });
+  let served = 0;
+  await page.route('**/_defer/counter', async (route) => {
+    const n = ++served;
+    await route.fulfill({ status: 200, contentType: 'text/html', body: `<b class="answer">answer-${n}</b>` }).catch(() => undefined);
+  });
+  await page.evaluate(() => {
+    const api = (window as unknown as RosannaApi).Rosanna;
+    api.reloadDefer('counter');
+    api.reloadDefer('counter');
+  });
+  await expect(page.locator('.answer')).toHaveCount(1);
+  await page.waitForTimeout(100);
+  await expect(page.locator('.answer')).toHaveText(`answer-${served}`);
 });
 
 test('JS-20: data-rosanna-reload-defer のクリックで取得し直す', async ({ page }) => {
