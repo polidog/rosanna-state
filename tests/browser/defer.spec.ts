@@ -134,17 +134,41 @@ test('JS-20: data-rosanna-reload-defer のクリックで取得し直す', async
   await expect(page.locator('#deferred-input')).toHaveValue('');
 });
 
-test('JS-20: action のボタンの data-rosanna-reload-defer は部分更新の成功の後に動く', async ({ page }) => {
-  await page.goto('/defer');
-  await expect(page.locator('#deferred-counter')).toHaveCount(1);
+const recordReloadOrder = (page: import('@playwright/test').Page) => {
   const order: string[] = [];
   page.on('request', (r) => {
     if (r.method() === 'POST') order.push('post');
     else if (r.url().endsWith('/_defer/counter')) order.push('defer');
   });
+  return order;
+};
+
+test('JS-20: action のボタンの data-rosanna-reload-defer は部分更新の成功の後に動く', async ({ page }) => {
+  await page.goto('/defer');
+  await expect(page.locator('#deferred-counter')).toHaveCount(1);
+  // 最初の action はセッションを始めるので、ページの更新 (JS-21) の取得が混ざる。先にセッションを作って読み直す
   await wrapper(page, 'reloader').locator('.inc').click();
   await expect(wrapper(page, 'reloader').locator('.n')).toHaveText('1');
-  await expect.poll(() => order).toEqual(['post', 'defer']);
+  await page.reload();
+  await expect(page.locator('#deferred-counter')).toHaveCount(1);
+  await expect(wrapper(page, 'reloader').locator('.n')).toHaveText('1');
+
+  const order = recordReloadOrder(page);
+  await wrapper(page, 'reloader').locator('.inc').click();
+  await expect(wrapper(page, 'reloader').locator('.n')).toHaveText('2');
+  await idle(page);
+  expect(order).toEqual(['post', 'defer']);
+});
+
+test('JS-20: セッションを始める action でも部分更新の成功の後に動く', async ({ page }) => {
+  await page.goto('/defer');
+  await expect(page.locator('#deferred-counter')).toHaveCount(1);
+  const order = recordReloadOrder(page);
+  await wrapper(page, 'reloader').locator('.inc').click();
+  await expect(wrapper(page, 'reloader').locator('.n')).toHaveText('1');
+  await expect.poll(() => order.slice(0, 2)).toEqual(['post', 'defer']);
+  await idle(page);
+  expect(order.filter((kind) => kind === 'post')).toEqual(['post']);
 });
 
 test('HD-9: defer の中のコンポーネントの action はページに送られて部分更新される', async ({ page, posts }) => {
