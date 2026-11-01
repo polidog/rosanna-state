@@ -1,6 +1,6 @@
 {
     "name": "polidog/rosanna-state",
-    "description": "Server-side state for Rosanna: hooks, signed actions, CSRF, snapshots, storage, defer and rosanna.js",
+    "description": "Server-side state for Rosanna: hooks, signed actions, CSRF, snapshots, storage and rosanna.js",
     "type": "library",
     "license": "MIT",
     "authors": [
@@ -13,12 +13,17 @@
         {
             "type": "vcs",
             "url": "https://github.com/polidog/rosanna"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/polidog/rosanna-defer"
         }
     ],
     "require": {
         "php": ">=8.5",
         "ext-session": "*",
-        "polidog/rosanna": "0.0.x-dev"
+        "polidog/rosanna": "0.0.x-dev",
+        "polidog/rosanna-defer": "0.0.x-dev"
     },
     "require-dev": {
         "composer/composer": "^2.8",

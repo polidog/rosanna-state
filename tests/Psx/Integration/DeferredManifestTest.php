@@ -6,8 +6,8 @@ namespace Polidog\Rosanna\State\Tests\Psx\Integration;
 
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
+use Polidog\Rosanna\Defer\DeferredManifestCompiler;
 use Polidog\Rosanna\Runtime\PsxRenderer;
-use Polidog\Rosanna\State\DeferredManifestCompiler;
 use Polidog\Rosanna\State\Http\Request;
 
 /**
@@ -23,7 +23,7 @@ final class DeferredManifestTest extends TestCase
         $cache = $cacheControl === null ? '' : ', cacheControl: ' . \var_export($cacheControl, true);
 
         return "<?php\nnamespace App;\n"
-            . "use Polidog\\Rosanna\\State\\Component\\Defer;\n"
+            . "use Polidog\\Rosanna\\Defer\\Defer;\n"
             . "use function Polidog\\Rosanna\\State\\fc;\n"
             . "return fc(fn (array \$props) => <i>deferred</i>, key: '$name', defer: new Defer('$name'$cache));\n";
     }

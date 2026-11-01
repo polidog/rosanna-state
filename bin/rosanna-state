@@ -25,7 +25,7 @@ $help = static function (): void {
           rosanna-state <command>
 
         Commands:
-          publish    Copy rosanna.js to your project's public directory
+          publish    Copy rosanna.js and rosanna-defer.js to your project's public directory
           compile    Compile .psx files and generate the manifest and the deferred manifest
           help       Show this help message
 
@@ -80,12 +80,23 @@ $publish = static function () use ($fail): int {
 
     echo "Published rosanna.js to {$target}\n";
 
+    $deferTarget = $targetDir . '/rosanna-defer.js';
+    $deferSource = $vendorDir . '/polidog/rosanna-defer/public/rosanna-defer.js';
+    if (!is_file($deferSource)) {
+        return $fail('rosanna-defer.js source not found');
+    }
+    if (!@copy($deferSource, $deferTarget)) {
+        return $fail("could not copy rosanna-defer.js to {$deferTarget}");
+    }
+
+    echo "Published rosanna-defer.js to {$deferTarget}\n";
+
     return 0;
 };
 
 $compile = static function (array $arguments): int {
     // CP-140
-    return new \Polidog\Rosanna\Psx\CompileCommand(new \Polidog\Rosanna\State\DeferredManifestCompiler()->compile(...))->run($arguments, getcwd() ?: '.');
+    return new \Polidog\Rosanna\Psx\CompileCommand(new \Polidog\Rosanna\Defer\DeferredManifestCompiler()->compile(...))->run($arguments, getcwd() ?: '.');
 };
 
 $command = $argv[1] ?? 'help';

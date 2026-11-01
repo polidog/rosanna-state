@@ -50,7 +50,7 @@ final class BuildIdConsistencyTest extends TestCase
     {
         $path = $this->dir . '/components/Foo.psx';
         \file_put_contents($path, "<?php\nnamespace App;\n"
-            . "use Polidog\\Rosanna\\State\\Component\\Defer;\n"
+            . "use Polidog\\Rosanna\\Defer\\Defer;\n"
             . "use function Polidog\\Rosanna\\State\\fc;\n"
             . "return fc(fn (array \$props) => <i>$text</i>, key: 'foo', defer: new Defer('foo'));\n");
         \touch($path, \time() + $mtimeOffset);

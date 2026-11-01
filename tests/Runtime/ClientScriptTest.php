@@ -15,6 +15,14 @@ final class ClientScriptTest extends TestCase
         self::assertStringContainsString('<script src="/rosanna.js" defer></script>', RosannaState::renderClientScript());
     }
 
+    /** rosanna-defer.js の hook を rosanna.js が先に置く */
+    public function testDeferScriptComesAfterTheStateScript(): void
+    {
+        $html = RosannaState::renderClientScript('/a.js', deferSrc: '/b.js');
+
+        self::assertGreaterThan((int) strpos($html, 'src="/a.js"'), (int) strpos($html, 'src="/b.js"'));
+    }
+
     public function testSrcIsEscaped(): void
     {
         $html = RosannaState::renderClientScript('/a.js?v=1&x="y"');
@@ -60,8 +68,8 @@ final class ClientScriptTest extends TestCase
     {
         $html = RosannaState::renderClientScript('/rosanna.js', '/_d', 'abc"123');
 
-        self::assertSame(3, substr_count($html, '<script'));
-        self::assertSame(3, substr_count($html, ' nonce="abc&quot;123"'));
+        self::assertSame(4, substr_count($html, '<script'));
+        self::assertSame(4, substr_count($html, ' nonce="abc&quot;123"'));
         // CSP でインラインのハンドラは動かないので使わない
         self::assertStringNotContainsString('onerror', $html);
     }

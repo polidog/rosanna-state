@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Polidog\Rosanna\State\Tests\Runtime;
 
 use PHPUnit\Framework\TestCase;
+use Polidog\Rosanna\Defer\DeferredManifestCompiler;
 use Polidog\Rosanna\Psx\CompileCommand;
 use Polidog\Rosanna\Runtime\PsxArgumentResolver;
 use Polidog\Rosanna\Runtime\PsxRenderer;
 use Polidog\Rosanna\Runtime\RequestLifecycle;
 use Polidog\Rosanna\Runtime\StackTraceRewriter;
-use Polidog\Rosanna\State\DeferredManifestCompiler;
 use Polidog\Rosanna\State\Tests\Runtime\Support\RendersInScope;
 
 /** RT-11、CP-150〜152 */

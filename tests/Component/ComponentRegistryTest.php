@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Polidog\Rosanna\State\Tests\Component;
 
 use PHPUnit\Framework\TestCase;
+use Polidog\Rosanna\Defer\Defer;
 use Polidog\Rosanna\Html\H;
 use Polidog\Rosanna\Runtime\Element;
 use Polidog\Rosanna\State\Component\BaseComponent;
 use Polidog\Rosanna\State\Component\Component;
 use Polidog\Rosanna\State\Component\ComponentRegistry;
-use Polidog\Rosanna\State\Component\Defer;
 use Polidog\Rosanna\State\Storage\SnapshotPersist;
 use Polidog\Rosanna\State\Storage\StorageType;
 

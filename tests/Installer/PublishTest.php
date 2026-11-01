@@ -55,6 +55,8 @@ final class PublishTest extends TestCase
         copy(self::repo('/bin/rosanna-state'), $package . '/bin/rosanna-state');
         if ($withScript) {
             file_put_contents($package . '/public/rosanna.js', '// published');
+            mkdir(dirname($package) . '/rosanna-defer/public', 0o755, true);
+            file_put_contents(dirname($package) . '/rosanna-defer/public/rosanna-defer.js', '// published defer');
         }
 
         return $package;
@@ -82,6 +84,7 @@ final class PublishTest extends TestCase
 
         self::assertSame(0, $result['code'], $result['stdout'] . $result['stderr']);
         self::assertSame('// published', file_get_contents($this->project . '/public/rosanna.js'));
+        self::assertSame('// published defer', file_get_contents($this->project . '/public/rosanna-defer.js'));
         self::assertSame('0755', substr(sprintf('%o', fileperms($this->project . '/public')), -4));
     }
 

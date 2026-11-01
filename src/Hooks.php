@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Polidog\Rosanna\State;
 
-use Polidog\Rosanna\State\Component\Defer;
+use Polidog\Rosanna\Defer\Defer;
 use Polidog\Rosanna\State\Storage\SnapshotPersist;
 use Polidog\Rosanna\State\Storage\StorageType;
 

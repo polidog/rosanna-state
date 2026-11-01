@@ -115,7 +115,7 @@ trait RendersPsx
         }
 
         \ob_start();
-        $code = new CompileCommand(new \Polidog\Rosanna\State\DeferredManifestCompiler()->compile(...))->run(['--cache=' . $this->cacheDir(), $dir], $this->workDir());
+        $code = new CompileCommand(new \Polidog\Rosanna\Defer\DeferredManifestCompiler()->compile(...))->run(['--cache=' . $this->cacheDir(), $dir], $this->workDir());
         $this->commandOutput = (string) \ob_get_clean();
 
         return $code;

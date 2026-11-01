@@ -16,6 +16,13 @@ if ($path === '/rosanna.js') {
     return;
 }
 
+if ($path === '/rosanna-defer.js') {
+    header('Content-Type: text/javascript; charset=UTF-8');
+    readfile(\Polidog\Rosanna\Defer\ClientScript::path());
+
+    return;
+}
+
 if (strlen((string) getenv('ROSANNA_SNAPSHOT_SECRET')) < 16) {
     http_response_code(500);
     header('Content-Type: text/plain; charset=UTF-8');

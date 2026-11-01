@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
+use Polidog\Rosanna\Defer\Defer;
 use Polidog\Rosanna\Html\H;
 use Polidog\Rosanna\Runtime\Element;
 use Polidog\Rosanna\Runtime\RenderContext;
 use Polidog\Rosanna\State\Component\BaseComponent;
 use Polidog\Rosanna\State\Component\Component;
-use Polidog\Rosanna\State\Component\Defer;
 
 use function Polidog\Rosanna\State\fc;
 

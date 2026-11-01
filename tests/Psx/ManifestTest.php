@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Polidog\Rosanna\State\Tests\Psx;
 
 use PHPUnit\Framework\TestCase;
+use Polidog\Rosanna\Defer\DeferredManifestCompiler;
 use Polidog\Rosanna\Psx\CompileCommand;
-use Polidog\Rosanna\State\DeferredManifestCompiler;
 use Polidog\Rosanna\State\Tests\Psx\Support\TemporaryDirectory;
 
 /**

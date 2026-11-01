@@ -6,7 +6,7 @@ Server-side state for [Rosanna](https://github.com/polidog/rosanna), named like 
 
 `polidog/rosanna-state` adds components in the shape of React Hooks to Rosanna's rendering. The server owns the state, and buttons and forms work without JavaScript. Loading `rosanna.js` turns them into partial updates.
 
-This package holds the hooks (`fc()`, `useState` and the rest), actions, signatures, CSRF, Snapshot, Storage, defer and `rosanna.js`. `H`, `Element`, `Renderer` and the PSX compiler live in [`polidog/rosanna`](https://github.com/polidog/rosanna), which this package requires. A site that only renders does not need this package.
+This package holds the hooks (`fc()`, `useState` and the rest), actions, signatures, CSRF, Snapshot, Storage and `rosanna.js`. Defer lives in [`polidog/rosanna-defer`](https://github.com/polidog/rosanna-defer), which this package requires. `H`, `Element`, `Renderer` and the PSX compiler live in [`polidog/rosanna`](https://github.com/polidog/rosanna), which this package requires. A site that only renders does not need this package.
 
 It has no router, no DI and no events. Choosing a page from a URL belongs to the host (a framework, or one PHP file per page). Together with `polidog/rosanna` it is a rewrite of [usePHP](https://github.com/polidog/usePHP); see [the migration steps](#migrating-from-usephp).
 
@@ -17,7 +17,7 @@ It has no router, no DI and no events. Choosing a page from a URL belongs to the
 
 ```bash
 composer require polidog/rosanna-state
-vendor/bin/rosanna-state publish   # copies rosanna.js to public/
+vendor/bin/rosanna-state publish   # copies rosanna.js and rosanna-defer.js to public/
 ```
 
 To publish on every `composer install`, add this to `composer.json`:
@@ -700,7 +700,7 @@ Behind a TLS-terminating proxy `$_SERVER['HTTPS']` is empty and valid POSTs get 
 
 ## Defer
 
-Fetch per-visitor parts, such as a login name or cart count, in a separate request after the page loads, so that the page itself can live on a CDN.
+Fetch per-visitor parts, such as a login name or cart count, in a separate request after the page loads, so that the page itself can live on a CDN. The work is done by [`polidog/rosanna-defer`](https://github.com/polidog/rosanna-defer), which also works without `RosannaState` if you do not need state.
 
 <!-- readme-test: defer -->
 ```php
@@ -713,7 +713,7 @@ use Polidog\Rosanna\Runtime\Element;
 use Polidog\Rosanna\Runtime\RenderContext;
 use Polidog\Rosanna\State\Component\BaseComponent;
 use Polidog\Rosanna\State\Component\Component;
-use Polidog\Rosanna\State\Component\Defer;
+use Polidog\Rosanna\Defer\Defer;
 use Polidog\Rosanna\State\Http\Request;
 use Polidog\Rosanna\State\RosannaState;
 use Polidog\Rosanna\State\Storage\StorageType;
@@ -786,7 +786,7 @@ declare(strict_types=1);
 
 use Polidog\Rosanna\Html\H;
 use Polidog\Rosanna\Runtime\Element;
-use Polidog\Rosanna\State\Component\Defer;
+use Polidog\Rosanna\Defer\Defer;
 use Polidog\Rosanna\State\Http\Request;
 use Polidog\Rosanna\State\RosannaState;
 use Polidog\Rosanna\State\Storage\StorageType;
@@ -826,7 +826,7 @@ $response->send();
 
 ## rosanna.js
 
-`RosannaState::renderClientScript($src, $deferPrefix, $nonce)` prints a `<script defer>` and an inline fallback that fetches defers once if the external file cannot load. Under a strict CSP, pass a nonce as the third argument.
+`RosannaState::renderClientScript($src, $deferPrefix, $nonce, $deferSrc)` prints a `<script defer>` and an inline fallback that fetches defers once if the external file cannot load. Under a strict CSP, pass a nonce as the third argument.
 
 - After a morph a field's value is, in order: what the user edited during the request; the server's value if it rendered something different from last time; the rendered value for fields of the submitted form; otherwise the user's value. Hidden fields and a `button`'s `value` follow the server.
 - Give rows of reordered or deleted lists an `id`. Without one they are matched by position.

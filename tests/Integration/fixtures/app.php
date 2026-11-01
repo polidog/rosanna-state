@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 // 組み込みサーバーで動かす host。パスの先頭で場面を選ぶ
 
+use Polidog\Rosanna\Defer\Defer;
 use Polidog\Rosanna\Html\H;
 use Polidog\Rosanna\Runtime\Element;
 use Polidog\Rosanna\Runtime\RenderContext;
 use Polidog\Rosanna\State\Component\BaseComponent;
 use Polidog\Rosanna\State\Component\Component;
-use Polidog\Rosanna\State\Component\Defer;
 use Polidog\Rosanna\State\ComponentState;
 
 use function Polidog\Rosanna\State\fc;
