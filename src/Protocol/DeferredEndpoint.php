@@ -127,9 +127,9 @@ final class DeferredEndpoint
                 RenderContext::beginRender();
                 $element = $this->target($name, $props);
 
-                // HD-11 クラスコンポーネントのフォームが部分更新のためにこのクエリを運ぶ
+                // HD-9、HD-11 フォームが部分更新のために送信元の名前とクエリを運ぶ
                 return $scope->renderers
-                    ->create('_root_', deferQuery: $request->queryString === '' ? null : $request->queryString)
+                    ->create('_root_', deferQuery: $request->queryString === '' ? null : $request->queryString, deferName: $name)
                     ->renderElement($element);
             });
 

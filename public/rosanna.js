@@ -824,7 +824,7 @@
         mirror.write(instanceKey(wrapper), wrapper.getAttribute('data-rosanna-snapshot'));
     }
 
-    // AC-21、JS-3、JS-14、HD-11
+    // AC-21、JS-3、JS-14、HD-9、HD-11
     function buildRestoreData(component, snapshot) {
         const id = component.getAttribute('data-rosanna');
         const data = new FormData();
@@ -837,6 +837,8 @@
         if (csrf) data.set('_rosanna_csrf', csrf.value);
         const deferQuery = ownField('_rosanna_defer_query');
         if (deferQuery) data.set('_rosanna_defer_query', deferQuery.value);
+        const defer = ownField('_rosanna_defer');
+        if (defer) data.set('_rosanna_defer', defer.value);
         setDescendantSnapshots(data, component);
         return data;
     }
@@ -1616,10 +1618,35 @@
         return null;
     }
 
+    /**
+     * HD-9 別の defer の中のインスタンスは ID が重なるので、ID と文書の中の出現順で見分ける。
+     * 入れ子のラッパーも数えないと、応答とライブで順番がずれる。
+     *
+     * @returns {Map<Element, string>}
+     */
+    function instanceSlots(root) {
+        const counts = new Map();
+        const slots = new Map();
+        for (const wrapper of root.querySelectorAll('[data-rosanna]')) {
+            const id = wrapper.getAttribute('data-rosanna');
+            const occurrence = counts.get(id) || 0;
+            counts.set(id, occurrence + 1);
+            // ID に制御文字は入らない (Action::isValidInstanceId)
+            slots.set(wrapper, id + '\0' + occurrence);
+        }
+        return slots;
+    }
+
+    function instanceAt(slot) {
+        const [id, occurrence] = slot.split('\0');
+        return document.querySelectorAll('[data-rosanna="' + CSS.escape(id) + '"]')[Number(occurrence)] || null;
+    }
+
     function pageSnapshots() {
+        const slots = instanceSlots(document);
         const snapshots = new Map();
         for (const wrapper of snapshotWrappers(document)) {
-            snapshots.set(wrapper.getAttribute('data-rosanna'), wrapper.getAttribute('data-rosanna-snapshot'));
+            snapshots.set(slots.get(wrapper), wrapper.getAttribute('data-rosanna-snapshot'));
         }
         return snapshots;
     }
@@ -1667,19 +1694,21 @@
         return recovery ? recovery.submission : null;
     }
 
-    /** @returns {Map<string, Element>} restore で戻すインスタンスと、失敗したときに当てる描画 */
+    /** @returns {Map<string, Element>} restore で戻すインスタンス (instanceSlots) と、失敗したときに当てる描画 */
     function applyRefresh(content, before, recoveries) {
         const wrappers = [...content.querySelectorAll('[data-rosanna]')];
+        // 親の差分で応答のノードがライブに移るので、応答の順番は先に決める
+        const slots = instanceSlots(content);
         const appliedIds = new Set();
         const held = new Map();
         for (const next of wrappers) {
-            const id = next.getAttribute('data-rosanna');
-            const live = findInstance(id);
+            const slot = slots.get(next);
+            const live = instanceAt(slot);
             if (!live) continue;
-            appliedIds.add(id);
-            if (needsRestoreAfterRefresh(before.get(id), next.getAttribute('data-rosanna-snapshot'))) {
+            appliedIds.add(next.getAttribute('data-rosanna'));
+            if (needsRestoreAfterRefresh(before.get(slot), next.getAttribute('data-rosanna-snapshot'))) {
                 heldForRestore.add(live);
-                held.set(id, next.cloneNode(true));
+                held.set(slot, next.cloneNode(true));
                 // JS-22 新しいセッションの署名でないと restore が通らない
                 const signature = next.getAttribute('data-rosanna-restore-sig');
                 if (signature !== null) live.setAttribute('data-rosanna-restore-sig', signature);
@@ -1692,7 +1721,7 @@
             return !boundary || !boundary.matches('[data-rosanna]');
         });
         for (const next of outermost) {
-            const live = findInstance(next.getAttribute('data-rosanna'));
+            const live = instanceAt(slots.get(next));
             // 親の差分で挿入された領域の中は、応答のノードがそのままライブになっている
             if (!live || live === next || heldForRestore.has(live)) continue;
             syncWrapperAttributes(live, next);
@@ -1739,11 +1768,11 @@
     }
 
     async function restoreHeldInstances(held, before, token) {
-        for (const [id, next] of held) {
-            const component = findInstance(id);
+        for (const [slot, next] of held) {
+            const component = instanceAt(slot);
             // 親の restore の応答で描き直されたものは終わっている
             if (component && heldForRestore.has(component)) {
-                await restoreHeld(component, before.get(id), next, token);
+                await restoreHeld(component, before.get(slot), next, token);
             }
         }
     }
@@ -1772,6 +1801,7 @@
 
         const token = csrfTokenIn(content);
         const { recoveries } = current;
+        const slots = instanceSlots(document);
         if (token === null && !current.forced) {
             // JS-26 セッションがないなら古いフォームではない。描き直しても同じ失敗になる
             recoveries.forEach(({ rejected }) => rejected());
@@ -1781,7 +1811,7 @@
             if (!announced) {
                 submission.keepFields = announceStale(submission.form, submission.component, { origin: 'server', response });
             }
-            if (restore !== null) before.set(submission.component.getAttribute('data-rosanna'), restore);
+            if (restore !== null) before.set(slots.get(submission.component), restore);
         }
 
         const held = applyRefresh(content, before, recoveries);

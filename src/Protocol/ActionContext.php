@@ -32,5 +32,6 @@ final readonly class ActionContext
         public array $carriedIds,
         public bool $stale,
         public ?string $deferQuery,
+        public ?string $deferName,
     ) {}
 }

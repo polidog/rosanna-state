@@ -28,6 +28,8 @@ use Polidog\Rosanna\Snapshot\SnapshotBehavior;
 use Polidog\Rosanna\Storage\StorageType;
 use Polidog\Rosanna\Tests\Protocol\Fixtures\DeferredPanel;
 use Polidog\Rosanna\Tests\Protocol\Fixtures\MemoryCounter;
+use Polidog\Rosanna\Tests\Protocol\Fixtures\SharedNameA;
+use Polidog\Rosanna\Tests\Protocol\Fixtures\SharedNameB;
 use Polidog\Rosanna\Tests\Protocol\Fixtures\SnapshotCounter;
 use Polidog\Rosanna\Tests\Protocol\Support\ActionRequests;
 
@@ -864,6 +866,220 @@ final class ActionHandlerTest extends TestCase
         self::assertSame(200, $response->status, $response->body);
         self::assertStringContainsString('count=1', $response->body);
         self::assertSame(1, $renders);
+    }
+
+    /** @return array{Rosanna, \Closure(): Element} A と B の中のコンポーネントはどちらも Shared#0 */
+    private static function twoDefersWithTheSameInstanceId(): array
+    {
+        $app = self::app();
+        $app->registerComponent('App\\A', static fn(): Element => H::div(children: [new SharedNameA()]))->registerDeferred('a', 'App\\A');
+        $app->registerComponent('App\\B', static fn(): Element => H::div(children: [new SharedNameB()]))->registerDeferred('b', 'App\\B');
+
+        return [$app, static fn(): Element => H::div(children: [H::defer('a'), H::defer('b')])];
+    }
+
+    /** @return array<string, mixed> */
+    private static function pressInDefer(Rosanna $app, string $uri): array
+    {
+        $endpoint = $app->handleDeferred(self::get($uri));
+        self::assertNotNull($endpoint);
+        self::assertSame(200, $endpoint->status, $endpoint->body);
+        $fields = self::press($endpoint->body);
+        RequestLifecycle::reset();
+
+        return $fields;
+    }
+
+    public function testHD9APartialFromTheLaterDeferAnswersWithThatDefer(): void
+    {
+        [$app, $page] = self::twoDefersWithTheSameInstanceId();
+        $fields = self::pressInDefer($app, '/_defer/b');
+
+        $response = $app->actions()->handle(self::post($fields, partial: true), replay: $page);
+
+        self::assertNotNull($response);
+        self::assertSame(200, $response->status, $response->body);
+        self::assertStringContainsString('from-B 1', $response->body);
+        self::assertStringNotContainsString('from-A', $response->body);
+    }
+
+    public function testHD9AnActionFromTheFirstDeferStillAnswersWithThatDefer(): void
+    {
+        [$app, $page] = self::twoDefersWithTheSameInstanceId();
+        $fields = self::pressInDefer($app, '/_defer/a');
+
+        $response = $app->actions()->handle(self::post($fields, partial: true), replay: $page);
+
+        self::assertNotNull($response);
+        self::assertStringContainsString('from-A 1', $response->body);
+    }
+
+    /** SG-6 の断片はページの署名なので、署名からは送信元が分からない。2 回目も同じ defer に答える */
+    public function testHD9TheFormsOfAFragmentKeepAnsweringWithTheirDefer(): void
+    {
+        $app = self::app();
+        foreach (['a', 'b'] as $name) {
+            $app->registerComponent("App\\{$name}", self::sameKeyCounter($name))->registerDeferred($name, "App\\{$name}");
+        }
+        $page = static fn(): Element => H::div(children: [H::defer('a'), H::defer('b')]);
+        $fields = self::pressInDefer($app, '/_defer/b');
+        $first = $app->actions()->handle(self::post($fields, partial: true), replay: $page);
+        self::assertNotNull($first);
+        self::assertStringContainsString('from-b 1', $first->body);
+        $next = self::press($first->body);
+        RequestLifecycle::reset();
+
+        $second = $app->actions()->handle(self::post($next, partial: true), replay: $page);
+
+        self::assertNotNull($second);
+        self::assertSame(200, $second->status, $second->body);
+        self::assertStringContainsString('from-b 2', $second->body);
+    }
+
+    /** どの $label でも同じインスタンス ID になる */
+    private static function sameKeyCounter(string $label): FunctionComponent
+    {
+        return fc(static function () use ($label): Element {
+            [$count, $set] = useState(0);
+
+            return H::div(children: [H::span(children: "from-{$label} {$count}"), H::button(onClick: static fn() => $set($count + 1), children: 'inc')]);
+        }, key: 'same', storageType: StorageType::Memory);
+    }
+
+    public function testHD9ADeferDoesNotAnswerWithTheSameInstanceOnThePage(): void
+    {
+        [$app] = self::twoDefersWithTheSameInstanceId();
+        $fields = self::pressInDefer($app, '/_defer/b');
+
+        $response = $app->actions()->handle(self::post($fields, partial: true), replay: static fn(): Element => H::div(children: [new SharedNameA(), H::defer('b')]));
+
+        self::assertNotNull($response);
+        self::assertStringContainsString('from-B 1', $response->body);
+    }
+
+    public function testHD9AnActionOnThePageDoesNotAnswerWithTheSameInstanceInADefer(): void
+    {
+        [$app] = self::twoDefersWithTheSameInstanceId();
+        $page = static fn(): Element => H::div(children: [H::defer('b'), new SharedNameA()]);
+        $fields = self::press(self::page($app, static fn(): Element => $page()));
+        RequestLifecycle::reset();
+
+        $response = $app->actions()->handle(self::post($fields, partial: true), replay: $page);
+
+        self::assertNotNull($response);
+        self::assertStringContainsString('from-A 1', $response->body);
+    }
+
+    /** 同じ名前の defer はパラメーターで見分ける */
+    public function testHD9TheSameDeferWithOtherParamsAnswersWithItsOwnParams(): void
+    {
+        $app = self::app();
+        $app->registerComponent('App\\B', static fn(): Element => H::div(children: [new SharedNameB()]))->registerDeferred('b', 'App\\B');
+        $fields = self::pressInDefer($app, '/_defer/b?topic=later');
+
+        $response = $app->actions()->handle(
+            self::post($fields, partial: true),
+            replay: static fn(): Element => H::div(children: [H::defer('b', ['topic' => 'first']), H::defer('b', ['topic' => 'later'])]),
+        );
+
+        self::assertNotNull($response);
+        self::assertStringContainsString('from-B 1 topic=later', $response->body);
+    }
+
+    /** reloadDefer などでパラメーターが置いたものと違っても、同じ名前の defer で答える */
+    public function testHD9ParamsThatMatchNoPlaceholderFallBackToTheSameName(): void
+    {
+        [$app, $page] = self::twoDefersWithTheSameInstanceId();
+        $fields = self::pressInDefer($app, '/_defer/b?topic=other');
+
+        $response = $app->actions()->handle(self::post($fields, partial: true), replay: $page);
+
+        self::assertNotNull($response);
+        self::assertSame(200, $response->status, $response->body);
+        self::assertStringContainsString('from-B 1', $response->body);
+    }
+
+    public function testHD9TheSendingDeferIsReachedThroughAnOuterPlaceholder(): void
+    {
+        $app = self::app();
+        $app->registerComponent('App\\A', static fn(): Element => H::div(children: [new SharedNameA()]))->registerDeferred('a', 'App\\A');
+        $app->registerComponent('App\\B', static fn(): Element => H::div(children: [new SharedNameB()]))->registerDeferred('b', 'App\\B');
+        $app->registerComponent('App\\Outer', static fn(): Element => H::div(children: [H::defer('b')]))->registerDeferred('outer', 'App\\Outer');
+        $fields = self::pressInDefer($app, '/_defer/b');
+
+        $response = $app->actions()->handle(self::post($fields, partial: true), replay: static fn(): Element => H::div(children: [H::defer('a'), H::defer('outer')]));
+
+        self::assertNotNull($response);
+        self::assertStringContainsString('from-B 1', $response->body);
+    }
+
+    /** 遅い defer を描画しないよう、送信元を先に探す */
+    public function testHD9TheSendingDeferIsRenderedBeforeTheOthers(): void
+    {
+        $app = self::app();
+        $renders = 0;
+        $app->registerComponent('App\\A', static function () use (&$renders): Element {
+            $renders++;
+
+            return H::div(children: [new SharedNameA()]);
+        })->registerDeferred('a', 'App\\A');
+        $app->registerComponent('App\\B', static fn(): Element => H::div(children: [new SharedNameB()]))->registerDeferred('b', 'App\\B');
+        $fields = self::pressInDefer($app, '/_defer/b');
+
+        $response = $app->actions()->handle(self::post($fields, partial: true), replay: static fn(): Element => H::div(children: [H::defer('a'), H::defer('b')]));
+
+        self::assertNotNull($response);
+        self::assertStringContainsString('from-B 1', $response->body);
+        self::assertSame(0, $renders);
+    }
+
+    /** デプロイの前に配ったフォームには送信元がない。これまでと同じく全体から探す */
+    public function testHD9AFormWithoutTheDeferFieldSearchesEverything(): void
+    {
+        $app = self::app();
+        $app->registerComponent('App\\B', static fn(): Element => H::div(children: [new SharedNameB()]))->registerDeferred('b', 'App\\B');
+        $fields = self::pressInDefer($app, '/_defer/b');
+        unset($fields['_rosanna_defer']);
+
+        $response = $app->actions()->handle(self::post($fields, partial: true), replay: static fn(): Element => H::div(children: [H::defer('b')]));
+
+        self::assertNotNull($response);
+        self::assertStringContainsString('from-B 1', $response->body);
+    }
+
+    public function testHD9ADeferFieldThatIsNotAStringIsRejected(): void
+    {
+        [$app, $page] = self::twoDefersWithTheSameInstanceId();
+        $fields = self::pressInDefer($app, '/_defer/b');
+        $fields['_rosanna_defer'] = ['b'];
+
+        $response = $app->actions()->handle(self::post($fields, partial: true), replay: $page);
+
+        self::assertNotNull($response);
+        self::assertSame(400, $response->status);
+        self::assertSame('Invalid action request', $response->body);
+    }
+
+    /** SN-18 送信元で絞っても、通り道の祖先の確認は続ける */
+    public function testHD9SearchingOneDeferStillChecksAncestorsOnThePage(): void
+    {
+        [$app] = self::twoDefersWithTheSameInstanceId();
+        $ancestor = fc(static function (): Element {
+            [$topic] = useState('safe');
+
+            return H::div(children: [H::defer('b', ['topic' => $topic])]);
+        }, key: 'ancestor', storageType: StorageType::Snapshot);
+        $page = static fn(): Element => H::div(children: [$ancestor()]);
+        $html = self::page($app, $page);
+        $carried = self::wrapperAttribute($html, 'data-rosanna-snapshot', self::idOf($html));
+        $fields = self::pressInDefer($app, '/_defer/b?topic=safe');
+        $fields['_rosanna_snapshots'] = [$carried];
+
+        $response = $app->actions()->handle(self::post($fields, partial: true), replay: $page);
+
+        self::assertNotNull($response);
+        self::assertSame(400, $response->status);
+        self::assertSame('Invalid snapshot', $response->body);
     }
 
     public function testHD9AFailingTargetIsSkippedAndLogged(): void

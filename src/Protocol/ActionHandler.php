@@ -33,6 +33,7 @@ final class ActionHandler
     private const FIELD_SNAPSHOTS = '_rosanna_snapshots';
     private const FIELD_BASE = '_rosanna_base';
     private const FIELD_DEFER_QUERY = '_rosanna_defer_query';
+    private const FIELD_DEFER = '_rosanna_defer';
 
     private const MAX_CARRIED_SNAPSHOTS = 256;
     private const MAX_FIELD_BYTES = 65_535;
@@ -106,11 +107,13 @@ final class ActionHandler
         $snapshotJson = $request->post[self::FIELD_SNAPSHOT] ?? null;
         $carried = $request->post[self::FIELD_SNAPSHOTS] ?? [];
         $deferQuery = $request->post[self::FIELD_DEFER_QUERY] ?? null;
+        $deferName = $request->post[self::FIELD_DEFER] ?? null;
         if (
             !is_string($instanceId) || !Action::isValidInstanceId($instanceId)
             || ($snapshotJson !== null && !is_string($snapshotJson))
             || !is_array($carried)
             || ($deferQuery !== null && !is_string($deferQuery))
+            || ($deferName !== null && !is_string($deferName))
         ) {
             return self::badRequest(self::INVALID_REQUEST);
         }
@@ -176,6 +179,7 @@ final class ActionHandler
             array_keys($others),
             $stale,
             $deferQuery === '' ? null : $deferQuery,
+            $deferName === '' ? null : $deferName,
         ), $replay);
     }
 
@@ -441,7 +445,7 @@ final class ActionHandler
             self::reserveInstanceNumber($name, $context->instanceId);
 
             return self::withDeferQuery($context->deferQuery, static fn(): string => $context->scope->renderers
-                ->create($context->instanceId, $context->storage, deferQuery: $context->deferQuery)
+                ->create($context->instanceId, $context->storage, deferQuery: $context->deferQuery, deferName: $context->deferName)
                 ->renderPartial(static function () use ($component): Element {
                     $state = ComponentState::current();
                     if ($component instanceof BaseComponent && $state !== null) {
@@ -488,6 +492,8 @@ final class ActionHandler
                 $roots,
                 $context->instanceId,
                 fn(string $name, array $props): ?Element => $this->app->deferredEndpoint()->renderForReplay($context->request, $name, $props),
+                $context->deferName,
+                $context->deferQuery,
             );
         });
         if ($found === null) {
@@ -507,7 +513,7 @@ final class ActionHandler
         }
 
         $html = RenderContext::run($scope, static fn(): string => self::withDeferQuery($context->deferQuery, static fn(): string => $scope->renderers
-            ->create($context->instanceId, $context->storage, deferQuery: $context->deferQuery)
+            ->create($context->instanceId, $context->storage, deferQuery: $context->deferQuery, deferName: $context->deferName)
             ->renderPartial(static fn(): array => $wrapper->children)));
 
         return self::fragmentResponse($html, $context);

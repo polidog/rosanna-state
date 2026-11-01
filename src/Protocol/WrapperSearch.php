@@ -19,23 +19,49 @@ final class WrapperSearch
      * 深さ優先で探し、なければプレースホルダーの対象を描画してさらに探す。deferred は遅いことが多いので、探索が届いたものだけ描画する。
      * 同じ名前とパラメーターは 1 回だけ。
      *
+     * ID は defer ごとに 0 から振られて重なるので、$deferName があればその defer の中だけを探す。パラメーターも揃うものを優先し、
+     * なければ同じ名前で最初に見つかったものを使う。他の対象は、その名前のプレースホルダーで見つからないときだけ描画する。
+     *
      * @param list<Element> $roots
      * @param callable(string, array<string, string>): ?Element $renderTarget 対象の描画。失敗は null
+     * @param string|null $deferName action の送信元の defer。署名しない。探す範囲を選ぶだけで、どの defer の内容も公開のエンドポイントから取れる
+     * @param string|null $deferQuery 送信元の defer のクエリ
      * @return array{Element, list<Element>}|null ラッパーと、木のすべて。探さずに残った根も SN-18 の確認に要るので含める
      */
-    public static function find(array $roots, string $instanceId, callable $renderTarget): ?array
+    public static function find(array $roots, string $instanceId, callable $renderTarget, ?string $deferName = null, ?string $deferQuery = null): ?array
     {
-        $pending = $roots;
+        $pending = array_map(static fn(Element $root): array => [$root, null, []], $roots);
+        $deferProps = self::sortedProps(self::queryProps($deferQuery));
         $searched = [];
         $visited = [];
+        $sameName = null;
+        $later = [];
 
-        while (($root = array_shift($pending)) !== null) {
+        while (true) {
+            $entry = array_shift($pending);
+            if ($entry === null) {
+                $next = array_shift($later);
+                if ($next === null) {
+                    break;
+                }
+                [$name, $props] = $next;
+                $target = $renderTarget($name, $props);
+                if ($target !== null) {
+                    $pending[] = [$target, $name, $props];
+                }
+                continue;
+            }
+
+            [$root, $targetName, $targetProps] = $entry;
             $root = self::expand($root);
             $searched[] = $root;
 
-            $wrapper = self::findWrapper($root, $instanceId);
+            $wrapper = $deferName === null || $targetName === $deferName ? self::findWrapper($root, $instanceId) : null;
             if ($wrapper !== null) {
-                return [$wrapper, [...$searched, ...array_map(self::expand(...), $pending)]];
+                if ($deferName === null || self::sortedProps($targetProps) === $deferProps) {
+                    return [$wrapper, [...$searched, ...array_map(static fn(array $rest): Element => self::expand($rest[0]), $pending)]];
+                }
+                $sameName ??= $wrapper;
             }
 
             foreach (self::placeholders($root) as $placeholder) {
@@ -50,14 +76,19 @@ final class WrapperSearch
                 }
                 $visited[$visit] = true;
 
+                if ($deferName !== null && $name !== $deferName) {
+                    $later[] = [$name, $props];
+                    continue;
+                }
+
                 $target = $renderTarget($name, $props);
                 if ($target !== null) {
-                    $pending[] = $target;
+                    $pending[] = [$target, $name, $props];
                 }
             }
         }
 
-        return null;
+        return $sameName === null ? null : [$sameName, $searched];
     }
 
     /**
@@ -130,6 +161,37 @@ final class WrapperSearch
         }
 
         return $found;
+    }
+
+    /**
+     * エンドポイントがクエリから作る props と同じ形 (DF-4)。
+     *
+     * @return array<string, string>
+     */
+    private static function queryProps(?string $query): array
+    {
+        parse_str($query ?? '', $params);
+
+        $props = [];
+        foreach ($params as $key => $value) {
+            $key = (string) $key;
+            if ($key !== 'key' && $key !== 'fallback' && is_string($value)) {
+                $props[$key] = $value;
+            }
+        }
+
+        return $props;
+    }
+
+    /**
+     * @param array<string, string> $props
+     * @return array<string, string>
+     */
+    private static function sortedProps(array $props): array
+    {
+        ksort($props);
+
+        return $props;
     }
 
     /**

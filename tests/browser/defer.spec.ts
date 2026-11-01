@@ -184,6 +184,58 @@ test('HD-9: defer の中のコンポーネントの action はページに送ら
   await expect(page.locator('#deferred-counter .n')).toHaveText('2');
 });
 
+for (const storage of ['memory', 'session', 'snapshot']) {
+  test(`HD-9: 同じ ID を含む 2 つの defer で、後ろの defer の部分更新が前の defer の内容にならない (${storage})`, async ({ page }) => {
+    await page.goto(`/defer-same/${storage}`);
+    const a = page.locator('#same-a');
+    const b = page.locator('#same-b');
+    await expect(a.locator('.n')).toHaveText('a=0');
+    await b.locator('.inc').click();
+    await expect(b.locator('.n')).toHaveText('b=1');
+    await b.locator('.inc').click();
+    await expect(b.locator('.n')).toHaveText('b=2');
+    await idle(page);
+    // a の場所に b の内容が入らない。Session の状態はインスタンス ID ごとなので a の値は問わない
+    await expect(page.locator('#same-a')).toHaveCount(1);
+    await expect(page.locator('#same-b')).toHaveCount(1);
+    await expect(a.locator('.n')).toHaveText(storage === 'session' ? /^a=\d+$/ : 'a=0');
+  });
+}
+
+test('HD-9、JS-22: 同じ ID の Snapshot は、ページの更新の後もそれぞれの場所に戻る', async ({ page }) => {
+  await page.goto('/defer-same-start/snapshot');
+  const a = page.locator('#same-a .n');
+  const b = page.locator('#same-b .n');
+  await expect(a).toHaveText('a=0');
+  await page.locator('#same-b .inc').click();
+  await expect(b).toHaveText('b=1');
+  await idle(page);
+
+  const refreshed = page.waitForResponse((r) => r.request().method() === 'GET' && new URL(r.url()).pathname === '/defer-same-start/snapshot');
+  await wrapper(page, 'starter').locator('.inc').click();
+  await refreshed;
+  await expect(wrapper(page, 'starter').locator('.n')).toHaveText('1');
+  await idle(page);
+
+  await expect(a).toHaveText('a=0');
+  await expect(b).toHaveText('b=1');
+});
+
+test('HD-9、JS-21: 入れ子のインスタンスと ID が重なっても、ページの更新が別の場所に当たらない', async ({ page }) => {
+  await page.goto('/defer-same-nested');
+  await expect(page.locator('#same-outer #same-a .n')).toHaveText('a=0');
+
+  const refreshed = page.waitForResponse((r) => r.request().method() === 'GET' && new URL(r.url()).pathname === '/defer-same-nested');
+  await page.locator('#same-b .inc').click();
+  await refreshed;
+  await expect(page.locator('#same-b .n')).toHaveText('b=1');
+  await idle(page);
+
+  // Session の状態はインスタンス ID ごとなので a の値は問わない
+  await expect(page.locator('#same-outer #same-a .n')).toHaveText(/^a=\d+$/);
+  await expect(page.locator('#same-b')).toHaveCount(1);
+});
+
 test('VR-6: defer で後から現れる Snapshot も照合の対象になる', async ({ page, posts }) => {
   await page.goto('/defer');
   const scope = page.locator('#deferred-snapshot');

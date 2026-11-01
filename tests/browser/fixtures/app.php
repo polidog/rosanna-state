@@ -228,6 +228,19 @@ function morphComponent(): FunctionComponent
     }, key: 'morph', storageType: StorageType::Session);
 }
 
+/** どの $label でも、同じストレージなら同じインスタンス ID になる (HD-9) */
+function sameIdCounter(string $label, StorageType $storage): FunctionComponent
+{
+    return fc(static function () use ($label): Element {
+        [$n, $set] = useState(0);
+
+        return H::div(id: "same-{$label}", children: [
+            H::span(className: 'n', children: "{$label}={$n}"),
+            H::button(className: 'inc', onClick: static fn() => $set($n + 1), children: '+1'),
+        ]);
+    }, key: 'same-' . $storage->value, storageType: $storage);
+}
+
 function deferApp(Request $request): Rosanna
 {
     $app = newApp($request);
@@ -261,7 +274,16 @@ function deferApp(Request $request): Rosanna
         return H::button(id: 'nested-defer', onClick: static fn() => $set($n + 1), children: 'nested=' . $n);
     }, key: 'plain2', defer: new Defer('plain2'));
 
-    foreach (['plain' => $plain, 'with-form' => $withForm, 'counter' => $counter, 'snap' => $snapshot, 'plain2' => $plain2] as $name => $component) {
+    $components = ['plain' => $plain, 'with-form' => $withForm, 'counter' => $counter, 'snap' => $snapshot, 'plain2' => $plain2];
+    foreach (StorageType::cases() as $storage) {
+        foreach (['a', 'b'] as $label) {
+            $components["same-{$storage->value}-{$label}"] = sameIdCounter($label, $storage);
+        }
+    }
+
+    $components['same-outer'] = fc(static fn(): Element => H::div(id: 'same-outer', children: [sameIdCounter('a', StorageType::Session)()]), key: 'same-outer');
+
+    foreach ($components as $name => $component) {
         $app->registerComponent('Fixture\\' . $name, $component);
         $app->registerDeferred($name, 'Fixture\\' . $name);
     }
@@ -514,6 +536,32 @@ switch ($scene) {
         ]), tail: '<div id="cross" data-rosanna-defer-url="http://localhost:' . $_SERVER['SERVER_PORT'] . '/_defer/plain"><i>fallback</i></div>'
             . '<div id="outside" data-rosanna-defer-url="/other"><i>fallback</i></div>'
             . '<div id="json" data-rosanna-defer-url="/_defer/json"><i>fallback</i></div>');
+
+        return;
+
+    case 'defer-same-start':
+        $starter = tiny('starter');
+        serve(deferApp($request), $request, static fn(): Element => H::main(children: [
+            H::defer("same-{$arg}-a"),
+            H::defer("same-{$arg}-b"),
+            $starter(),
+        ]));
+
+        return;
+
+    case 'defer-same-nested':
+        serve(deferApp($request), $request, static fn(): Element => H::main(children: [
+            H::defer('same-outer'),
+            H::defer('same-session-b'),
+        ]));
+
+        return;
+
+    case 'defer-same':
+        serve(deferApp($request), $request, static fn(): Element => H::main(children: [
+            H::defer("same-{$arg}-a"),
+            H::defer("same-{$arg}-b"),
+        ]));
 
         return;
 

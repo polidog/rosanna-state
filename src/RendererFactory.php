@@ -25,13 +25,15 @@ final class RendererFactory
     /**
      * @param string $rootId action の componentId がないときの送信先
      * @param string|null $deferQuery この断片を答える defer のリクエストのクエリ。フォームが再描画のために運ぶ (HD-11)
+     * @param string|null $deferName この断片を答える defer の名前。フォームが送信元として運ぶ (HD-9)
      */
     public function create(
         string $rootId,
         ?StorageType $storage = null,
         ?SnapshotPersist $persist = null,
         ?string $deferQuery = null,
+        ?string $deferName = null,
     ): Renderer {
-        return new Renderer($rootId, $storage, $persist, $deferQuery, $this->snapshotSerializer, $this->signer, $this->csrf, $this->deferPrefix);
+        return new Renderer($rootId, $storage, $persist, $deferQuery, $deferName, $this->snapshotSerializer, $this->signer, $this->csrf, $this->deferPrefix);
     }
 }

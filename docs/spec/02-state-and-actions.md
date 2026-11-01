@@ -80,7 +80,7 @@ final readonly class Response
 
 | 用途 | 名前 |
 |---|---|
-| フォーム | `_rosanna_component`、`_rosanna_action`、`_rosanna_base[{index}]`、`_rosanna_csrf`、`_rosanna_snapshot`、`_rosanna_snapshots[]`、`_rosanna_defer_query` |
+| フォーム | `_rosanna_component`、`_rosanna_action`、`_rosanna_base[{index}]`、`_rosanna_csrf`、`_rosanna_snapshot`、`_rosanna_snapshots[]`、`_rosanna_defer_query`、`_rosanna_defer` |
 | 属性 | `data-rosanna`、`data-rosanna-form`、`data-rosanna-snapshot`、`data-rosanna-snapshot-update`、`data-rosanna-persist`、`data-rosanna-restore-sig`、`data-rosanna-on-*`、`data-rosanna-action-*`、`data-rosanna-with-value`、`data-rosanna-error`、`data-rosanna-reload-defer`、`data-rosanna-defer-*` |
 | ヘッダー | `X-Rosanna-Partial`、`X-Rosanna-Defer`、`X-Rosanna-Stale`、`X-Rosanna-Session-Started` |
 | セッション | `_rosanna_csrf`、`_rosanna_action_key`、`_rosanna_snapshot` |
@@ -773,6 +773,9 @@ echo $app->render(Counter::class);
 - **HD-8** `replay` の中の例外は握りつぶさず host に伝える。状態は適用済みのことがある。クライアントは再送しない (JS-5)。
 - **HD-9** ラッパーの探索は深さ優先で `data-rosanna` が一致するものを探す。defer のプレースホルダは対象の中身を描画してさらに探す。同じ名前とパラメーターは 1 回だけで、失敗した対象は飛ばす
   (`usePHP/src/UsePHP.php:2667-2698`, `:2725-2743`)。ネストしたプレースホルダは、エンドポイントと同じくプレースホルダのまま (`SnapshotReplayGuardsTest::testAReplayKeepsANestedDeferAsAPlaceholder`)。
+  - 自動の連番は描画のパスごとに 0 から始まるので、別の `defer` の中のインスタンスは同じ ID になる。defer のエンドポイントと、そのフォームから返す断片のフォームは、送信元の名前を `_rosanna_defer` で運ぶ。署名の scope は使えない。断片のフォームはページで署名し直すため (SG-6)。
+  - `_rosanna_defer` があれば、その名前の対象の中だけを探し、ページの木や他の対象の中のラッパーは返さない。`_rosanna_defer_query` とパラメーターが揃う対象を優先し、なければ同じ名前で最初に見つかったものを使う。他の対象は、その名前のプレースホルダで見つからないときだけ描画する。なければこれまでどおり全体から探す。
+  - `_rosanna_defer` は署名しない。探す範囲を選ぶだけで、どの対象の内容も公開のエンドポイントから取れるので、渡すものが増えない (DF-12)。SN-18 の確認は、通った木のすべてに対して続ける。
 - **HD-10** `replay` は Relayer のページに注入されたサービスをそのまま使える。Rosanna は DI を知らない。部分更新と defer を含む再描画で DI が効くことは Relayer の CI で確かめる (計画書)。
 - **HD-11** 断片は `_rosanna_defer_query` を受けて、クラスコンポーネントのフォームに同じ値を出し直す。パラメーターを `$_GET` から読むクラスコンポーネントのため `$_GET` に設定する。署名しない。この POST のクエリは元からクライアントが選べるので、渡すものが増えない
   (`usePHP/src/UsePHP.php:2936-2944`)。
@@ -803,7 +806,7 @@ echo $app->render(Counter::class);
 - HD-16: 実際の HTTP で、Cookie のない最初の部分更新にだけ付く。2 回目の action、Cookie のある訪問者、通常の POST、Snapshot だけの action、秘密鍵なしの構成、拒否された action では付かない (`SessionActionFlowTest::testHD16*`)。
 - 応答の判断の表の全行。`IsolatedSnapshotFallbackTest`、`ActionFlowRoutesTest` の項目を `behavior` の指定に書き換える。
 - HD-6: 文字列の応答でも `renderElement()` からラッパーが見つかる。出力する `replay` が断片を壊さない。
-- HD-9: `testADeferredComponentAnswersAPartialFromThePageItsFormPostsTo`、`testAnActionInsideANestedDeferFindsItThroughTheOuterPlaceholder`。
+- HD-9: `testADeferredComponentAnswersAPartialFromThePageItsFormPostsTo`、`testAnActionInsideANestedDeferFindsItThroughTheOuterPlaceholder`。同じ ID を含む複数の defer は `ActionHandlerTest::testHD9*` と `tests/browser/defer.spec.ts`。
 - HD-13: `testNormalizeRedirectPathYieldsSameOriginPath`、`testNormalizeRedirectTargetKeepsTheQueryButNotTheAuthority`。
 - RQ-2: `handle()` の呼び出しの前後で `headers_list()` が増えず、出力もない。
 - RQ-3: 同じインスタンスで 2 つのリクエストを続けて処理しても、前のページを返さない。
@@ -922,9 +925,9 @@ PHP の `Rosanna::renderClientScript(string $src = '/rosanna.js', ?string $defer
 
 秘密鍵があると描画でセッションが始まらない (ST-2) ので、Cookie のない訪問者のフォームはトークンを持たず、署名の `sessionId` は空になる。最初の action の後、描き直されなかったフォームは CS-3 と SG-1 を通らなくなる。これらの要件を緩めず、フォームを新しくする (11 節の U-7)。
 
-- **JS-21** 応答に `X-Rosanna-Session-Started: 1` があれば、断片を適用した後でページを更新する。送信中の応答の適用をすべて待ち、`fetch(location.href)` の GET (`cache: 'no-store'`) で取り直して `template` に解析し、ライブの `[data-rosanna]` に ID で差分を当てる (JS-7)。入力中の欄とフォーカスは JS-7 の順で保ち、`hidden` と `button` の `value` はサーバーに従う。アプリの `form` の外に置かれたフォーム (RT-4.5) は入れ替える。文書全体を置き換えず、ラッパーの外と、ラッパー自身の Rosanna のもの以外の属性には触らない。最初の action が redirect で答え、再送の待ちがあるとき (JS-4) はヘッダーが見えないので、トークンのないフォームなら同じ更新を行う。
+- **JS-21** 応答に `X-Rosanna-Session-Started: 1` があれば、断片を適用した後でページを更新する。送信中の応答の適用をすべて待ち、`fetch(location.href)` の GET (`cache: 'no-store'`) で取り直して `template` に解析し、ライブの `[data-rosanna]` に ID で差分を当てる (JS-7)。同じ ID が複数あれば、入れ子も含めた文書の中の出現順で対応を取る (HD-9)。入力中の欄とフォーカスは JS-7 の順で保ち、`hidden` と `button` の `value` はサーバーに従う。アプリの `form` の外に置かれたフォーム (RT-4.5) は入れ替える。文書全体を置き換えず、ラッパーの外と、ラッパー自身の Rosanna のもの以外の属性には触らない。最初の action が redirect で答え、再送の待ちがあるとき (JS-4) はヘッダーが見えないので、トークンのないフォームなら同じ更新を行う。
   GET が失敗したとき、2xx でないとき、redirect されたとき、HTML でないときは `location.reload()` に落とす。redirect は別のオリジンに限らない。別の URL のページは署名の scope が違うので (SG-5) 差分を当てられない。1 回の更新で 1 回だけで、読み込み直したページはセッションの Cookie を持つのでヘッダーが出ない。
-- **JS-22** Snapshot のインスタンスは GET で初期状態に戻るので、更新の前のスナップショットを覚える。更新の前のバージョンが 1 以上で、更新後より新しいか同じで内容が違えば、そのインスタンスの差分は当てず (入力中の欄が初期値を経由して消えないため)、更新後のページの `data-rosanna-restore-sig` とトークンで `restore` を送り、応答を当てる。スナップショットの HMAC はセッションに束縛されないので通る。親の応答が子を描き直すので親から順に送る。更新後の方が新しければサーバーの値を正とする (`SnapshotBehavior::Session`)。写しと `persist` の保存値は最後に今の値で更新する (JS-9)。写しの方が新しければ残す (戻る操作の後のページ、通信で失敗した `restore`)。`restore` が通らなければ描画された値を当てる。サーバーが拒否したなら JS-13 のとおり保存値を捨て、通信の失敗なら残して次のクリックを JS-8 に任せる。
+- **JS-22** Snapshot のインスタンスは GET で初期状態に戻るので、更新の前のスナップショットを JS-21 と同じ対応で覚える。更新の前のバージョンが 1 以上で、更新後より新しいか同じで内容が違えば、そのインスタンスの差分は当てず (入力中の欄が初期値を経由して消えないため)、更新後のページの `data-rosanna-restore-sig` とトークンで `restore` を送り、応答を当てる。スナップショットの HMAC はセッションに束縛されないので通る。親の応答が子を描き直すので親から順に送る。更新後の方が新しければサーバーの値を正とする (`SnapshotBehavior::Session`)。写しと `persist` の保存値は最後に今の値で更新する (JS-9)。写しの方が新しければ残す (戻る操作の後のページ、通信で失敗した `restore`)。`restore` が通らなければ描画された値を当てる。サーバーが拒否したなら JS-13 のとおり保存値を捨て、通信の失敗なら残して次のクリックを JS-8 に任せる。
 - **JS-23** defer はページ内のメモリのキャッシュから、セッションに結びつく断片 (JS-17 の目印) を更新の開始時に消す。セッションの前に始めた取得は中断して取り直し、結果をキャッシュに入れない。解決済みの defer は、応答のプレースホルダの位置に取得した断片を入れてから差分を当てる。中のインスタンスも ID で対応し、入力と Snapshot の状態が残る。取得に失敗した領域はプレースホルダのままで、既存の取得に任せる。JS-16 の検査を同じように通す。
 - **JS-24** 更新の間の送信は行わない。JS-6 と同じく固定値の action は捨て、`data-rosanna-with-value` のものは更新の後に最新の値で新しいフォームから 1 回送る。
 - **JS-25** トークンのないフォームの Session の action が送信中の間は、他の Session の action を JS-6 と同じ扱いで止める。Cookie のない 2 つの action はそれぞれセッションを作り、後の Cookie が勝って先の更新が失われるため (Chromium で再現した。表示は両方更新されるが、リロードで先の更新が消える)。エンベロープの `action.storageType` で判定する。クラスのコンポーネントは `storageType` を持たないので (RT-5.3)、ラッパーが Snapshot でなければ Session と見る (AC-11)。JSON にならない値は止めない。Snapshot と Memory の `storageType` を持つ action は止めないので、Snapshot だけのページの兄弟は同時に送る。
