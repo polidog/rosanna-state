@@ -80,6 +80,13 @@ final class ComponentRegistry
         return $this->defers[$name] ?? null;
     }
 
+    public function nameOf(string $className): ?string
+    {
+        $name = array_search($className, $this->components, true);
+
+        return $name === false ? null : (string) $name;
+    }
+
     /** @return array<string, class-string<ComponentInterface>> */
     public function all(): array
     {

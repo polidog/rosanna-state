@@ -85,6 +85,13 @@ final class ComponentRegistryTest extends TestCase
         self::assertNull($registry->create('nope'));
     }
 
+    public function testNameOfFindsTheRegisteredNameOfAClass(): void
+    {
+        $registry = new ComponentRegistry()->register(FirstRegistered::class);
+        self::assertSame('shared-name', $registry->nameOf(FirstRegistered::class));
+        self::assertNull($registry->nameOf(PlainRegistered::class));
+    }
+
     public function testNonComponentIsRefused(): void
     {
         $this->expectException(\InvalidArgumentException::class);
