@@ -18,7 +18,7 @@
     "require": {
         "php": ">=8.5",
         "ext-session": "*",
-        "polidog/rosanna": "dev-split-state-layer"
+        "polidog/rosanna": "0.0.x-dev"
     },
     "require-dev": {
         "composer/composer": "^2.8",
