@@ -20,9 +20,23 @@ const test = base.extend<{}, { server: PhpServer }>({
 
 test('一覧からすべてのサンプルに行ける', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('li a')).toHaveCount(10);
+  await expect(page.locator('li a')).toHaveCount(11);
   await page.getByRole('link', { name: '01-counter' }).click();
   await expect(page.locator('h1')).toHaveText('Counter');
+});
+
+test('00-stateless: 状態を使わないページはセッションを始めず、入力はエスケープされる', async ({ page, context }) => {
+  const response = await page.goto('/00-stateless');
+  expect(response?.headers()['set-cookie']).toBeUndefined();
+  expect(await context.cookies()).toEqual([]);
+  expect(await page.content()).not.toContain('data-rosanna=');
+  await expect(page.locator('tr')).toHaveCount(3);
+
+  await page.getByRole('searchbox').fill('<b>t');
+  await page.getByRole('button', { name: 'Search' }).click();
+  await expect(page.getByText('Results for: <b>t')).toBeVisible();
+  await expect(page.locator('p b')).toHaveCount(0);
+  expect(await context.cookies()).toEqual([]);
 });
 
 for (const javaScriptEnabled of [true, false]) {

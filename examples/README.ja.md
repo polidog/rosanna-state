@@ -22,6 +22,7 @@ http://localhost:8000 を開くと一覧が出ます。
 
 | サンプル | 見せること | 主な API | JS なし |
 |---|---|---|---|
+| [00-stateless](00-stateless/index.php) | hooks を使わないページ。セッションは始まらない。同じアプリで状態のあるページと並べられる | `H`、`Renderable`、`renderElement` | 動く |
 | [01-counter](01-counter/index.php) | コンポーネントと host の処理の基本の形 | `fc`、`useState`、`actions()->handle` | 動く |
 | [02-form](02-form/index.php) | 入力の受け取りとサーバー側の検証 | `useFormAction`、`select`、`checkbox` | 動く |
 | [03-cart](03-cart/index.php) | 一覧全体を 1 つの状態で持つ。金額はサーバーの値で計算する | 配列の `useState`、行の `id` | 動く |

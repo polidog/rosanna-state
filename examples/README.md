@@ -22,6 +22,7 @@ Read in order to go from the basics to embedding in a host. The last column says
 
 | Example | What it shows | Main APIs | Without JS |
 |---|---|---|---|
+| [00-stateless](00-stateless/index.php) | A page without hooks. No session starts, and it can sit next to stateful pages in the same app | `H`, `Renderable`, `renderElement` | Works |
 | [01-counter](01-counter/index.php) | The basic shape of a component and its host | `fc`, `useState`, `actions()->handle` | Works |
 | [02-form](02-form/index.php) | Taking input and validating it on the server | `useFormAction`, `select`, `checkbox` | Works |
 | [03-cart](03-cart/index.php) | One state for a whole list, with totals from server prices | array `useState`, row `id` | Works |
