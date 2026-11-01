@@ -25,6 +25,7 @@ use Polidog\Rosanna\State\StateDiff;
 use Polidog\Rosanna\State\Storage\StorageType;
 use Polidog\Rosanna\State\Tests\Protocol\Fixtures\DeferredPanel;
 use Polidog\Rosanna\State\Tests\Protocol\Fixtures\MemoryCounter;
+use Polidog\Rosanna\State\Tests\Protocol\Fixtures\NumberedParent;
 use Polidog\Rosanna\State\Tests\Protocol\Fixtures\SharedNameA;
 use Polidog\Rosanna\State\Tests\Protocol\Fixtures\SharedNameB;
 use Polidog\Rosanna\State\Tests\Protocol\Fixtures\SnapshotCounter;
@@ -1182,6 +1183,105 @@ final class ActionHandlerTest extends TestCase
         $fields['_rosanna_snapshots'] = $carried;
 
         return $fields;
+    }
+
+    /** RT-8.6 子が fc でも、描画のときに番号を取るクラスでも、GET と部分更新で ID が揃う */
+    public function testRT86ClassChildrenKeepTheirIdsInAPartial(): void
+    {
+        $app = self::app();
+        $app->register(NumberedParent::class);
+        $page = static fn(): Element => H::div(children: [$app->createElement('NumberedParent', 'one'), $app->createElement('NumberedParent', 'two')]);
+        $html = self::page($app, $page);
+        $ids = [];
+        foreach (self::dom($html)->querySelectorAll('[data-rosanna]') as $wrapper) {
+            $ids[] = (string) $wrapper->getAttribute('data-rosanna');
+        }
+        self::assertCount(6, $ids);
+        self::assertCount(6, array_unique($ids));
+
+        $fields = self::press($html, 1);
+        self::assertSame('NumberedParent#two', $fields['_rosanna_component']);
+        RequestLifecycle::reset();
+        $response = $app->actions()->handle(self::post($fields, partial: true), replay: $page);
+
+        self::assertNotNull($response);
+        self::assertSame(200, $response->status, $response->body);
+        self::assertStringContainsString('parent=1', $response->body);
+        $children = array_values(array_filter($ids, static fn(string $id): bool => str_contains($id, '#NumberedParent#two/')));
+        self::assertCount(2, $children);
+        foreach ($children as $id) {
+            self::assertStringContainsString('data-rosanna="' . $id . '"', $response->body);
+        }
+    }
+
+    /** SN-32 祖先は専用の欄で運ぶ。子の部分更新の replay に祖先の値が届き、SN-18 の 400 にならない */
+    public function testSN32AnAncestorInItsOwnFieldReachesTheReplay(): void
+    {
+        $app = self::app();
+        $child = fc(static function (array $props): Element {
+            [$count, $set] = useState(0);
+
+            return H::div(children: [H::button(onClick: static fn() => $set($count + 1), children: "child={$count} tab={$props['tab']}")]);
+        }, key: 'child', storageType: StorageType::Snapshot);
+        $parent = fc(static function () use ($child): Element {
+            [$tab, $set] = useState('a');
+
+            return H::div(children: [H::button(onClick: static fn() => $set('b'), children: 'to b'), $tab === 'b' ? $child(['tab' => $tab]) : H::p()]);
+        }, key: 'parent', storageType: StorageType::Snapshot);
+        $page = static fn(): Element => H::div(children: [$parent()]);
+
+        $response = $app->actions()->handle(self::post(self::press(self::page($app, $page), 0), partial: true), replay: $page);
+        self::assertNotNull($response);
+        $parentSnapshot = self::parsedUpdate($response->body);
+        RequestLifecycle::reset();
+
+        $html = self::page($app, static function () use ($app, $child): Element {
+            return H::div(children: [$child(['tab' => 'b'])]);
+        });
+        $fields = self::press($html, 0);
+        $fields['_rosanna_ancestors'] = [$parentSnapshot];
+        RequestLifecycle::reset();
+
+        $response = $app->actions()->handle(self::post($fields, partial: true), replay: $page);
+
+        self::assertNotNull($response);
+        self::assertSame(200, $response->status, $response->body);
+        self::assertStringContainsString('child=1 tab=b', $response->body);
+    }
+
+    public function testSN32AForgedAncestorIsRejected(): void
+    {
+        [$app, $page, $html] = self::nestedSnapshotPage();
+        $fields = self::press($html, 1);
+        $fields['_rosanna_ancestors'] = ['{"memo":{"name":"x","key":"y","version":0},"state":[1],"effectDeps":[],"checksum":"00"}'];
+        RequestLifecycle::reset();
+
+        $response = $app->actions()->handle(self::post($fields, partial: true), replay: static fn(): Element => $page());
+
+        self::assertNotNull($response);
+        self::assertSame(400, $response->status);
+        self::assertSame('Invalid snapshot', $response->body);
+    }
+
+    public function testSN32AnAncestorsFieldThatIsNotAListIsRejected(): void
+    {
+        [$app, $page, $html] = self::nestedSnapshotPage();
+        $fields = self::press($html, 1);
+        $fields['_rosanna_ancestors'] = 'x';
+        RequestLifecycle::reset();
+
+        $response = $app->actions()->handle(self::post($fields, partial: true), replay: static fn(): Element => $page());
+
+        self::assertNotNull($response);
+        self::assertSame(400, $response->status);
+    }
+
+    private static function parsedUpdate(string $fragment): string
+    {
+        $field = self::dom($fragment)->querySelector('[data-rosanna-snapshot-update]');
+        self::assertNotNull($field);
+
+        return (string) $field->getAttribute('value');
     }
 
     public function testSN18ADescendantSnapshotIsAcceptedOnAPartial(): void

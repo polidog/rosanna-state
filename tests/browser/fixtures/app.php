@@ -25,7 +25,7 @@ require __DIR__ . '/../../../vendor/autoload.php';
 
 ini_set('display_errors', '0');
 
-/** JS-25 クラスの setter は action に storageType を入れない (RT-5.3) */
+/** JS-25 クラスの setter (RT-5.3) */
 #[Polidog\Rosanna\State\Component\Component(name: 'ClassCounter')]
 final class ClassCounter extends Polidog\Rosanna\State\Component\BaseComponent
 {
@@ -34,6 +34,51 @@ final class ClassCounter extends Polidog\Rosanna\State\Component\BaseComponent
         [$n, $set] = $this->useState(0);
 
         return H::div(children: [H::span(className: 'n', children: (string) $n), H::button(onClick: static fn() => $set($n + 1), children: '+1')]);
+    }
+}
+
+/** RT-5.3 登録できないクラスは #[Component] の保存先を setter が運ぶ */
+#[Polidog\Rosanna\State\Component\Component(name: 'ArgSnapshot', storage: 'snapshot')]
+final class ArgSnapshot extends Polidog\Rosanna\State\Component\BaseComponent
+{
+    public function __construct(private readonly string $label) {}
+
+    public function render(): Element
+    {
+        [$n, $set] = $this->useState(0);
+
+        return H::div(children: [H::span(className: 'n', children: "{$this->label}={$n}"), H::button(onClick: static fn() => $set($n + 1), children: '+1')]);
+    }
+}
+
+#[Polidog\Rosanna\State\Component\Component(name: 'ArgMemory', storage: 'memory')]
+final class ArgMemory extends Polidog\Rosanna\State\Component\BaseComponent
+{
+    public function __construct(private readonly string $label) {}
+
+    public function render(): Element
+    {
+        [$n, $set] = $this->useState(0);
+
+        return H::div(children: [H::span(className: 'n', children: "{$this->label}={$n}"), H::button(onClick: static fn() => $set($n + 1), children: '+1')]);
+    }
+}
+
+/** RT-8.6 key のない子は、クラスのインスタンスの中で数える */
+#[Polidog\Rosanna\State\Component\Component(name: 'ParentClass')]
+final class ParentClass extends Polidog\Rosanna\State\Component\BaseComponent
+{
+    public static ?Polidog\Rosanna\State\FunctionComponent $child = null;
+
+    public function render(): Element
+    {
+        [$n, $set] = $this->useState(0);
+
+        return H::div(children: [
+            H::span(className: 'parent-n', children: (string) $n),
+            H::button(className: 'parent-inc', onClick: static fn() => $set($n + 1), children: '+1'),
+            (self::$child)(),
+        ]);
     }
 }
 
@@ -311,6 +356,68 @@ switch ($scene) {
     case 'other':
         header('Content-Type: text/html; charset=utf-8');
         echo '<!doctype html><html><body><p id="other">other</p></body></html>';
+
+        return;
+
+    // RT-5.3
+    case 'arg-class':
+        $app = newApp($request);
+        serve($app, $request, static fn(): Element => H::main(children: [
+            H::section(id: 'snapshot', children: [new ArgSnapshot('snapshot')]),
+            H::section(id: 'memory', children: [new ArgMemory('memory')]),
+        ]));
+
+        return;
+
+        // RT-8.6
+    case 'class-children':
+        $app = newApp($request);
+        $app->register(ParentClass::class);
+        ParentClass::$child = fc(static function (): Element {
+            [$n, $set] = useState(0);
+
+            return H::div(children: [H::span(className: 'child-n', children: (string) $n), H::button(className: 'child-inc', onClick: static fn() => $set($n + 1), children: '+1')]);
+        });
+        serve($app, $request, static fn(): Element => H::main(children: [
+            H::section(id: 'one', children: [$app->createElement('ParentClass', 'one')]),
+            H::section(id: 'two', children: [$app->createElement('ParentClass', 'two')]),
+        ]));
+
+        return;
+
+        // SN-32 祖先のスナップショットが子の部分更新の replay に届く
+    case 'snapshot-ancestor':
+        $app = newApp($request);
+        $panel = fc(static function (array $props): Element {
+            [$n, $set] = useState(0);
+
+            return H::div(children: [H::span(id: 'panel', children: "panel={$n} tab={$props['tab']}"), H::button(id: 'panel-inc', onClick: static fn() => $set($n + 1), children: '+1')]);
+        }, key: 'panel', storageType: StorageType::Snapshot);
+        $tabs = fc(static function () use ($panel): Element {
+            [$tab, $set] = useState('a');
+
+            return H::div(children: [
+                H::span(id: 'tab', children: "tab={$tab}"),
+                H::button(id: 'to-b', onClick: static fn() => $set('b'), children: 'to b'),
+                $tab === 'b' ? $panel(['tab' => $tab]) : H::p(id: 'empty', children: 'empty'),
+            ]);
+        }, key: 'tabs', storageType: StorageType::Snapshot);
+        serve($app, $request, static fn(): Element => H::main(children: [$tabs()]));
+
+        return;
+
+        // RT-4.10 セルの中のコンポーネントなら表は壊れない
+    case 'table-cell':
+        $app = newApp($request);
+        $cell = fc(static function (): Element {
+            [$n, $set] = useState(0);
+
+            return H::div(children: [H::span(className: 'n', children: (string) $n), H::button(onClick: static fn() => $set($n + 1), children: '+1')]);
+        }, key: 'cell');
+        serve($app, $request, static fn(): Element => H::main(children: [H::table(children: H::tbody(children: [
+            H::tr(id: 'row-1', children: [H::td(children: $cell(['key' => 1]))]),
+            H::tr(id: 'row-2', children: [H::td(children: $cell(['key' => 2]))]),
+        ]))]));
 
         return;
 

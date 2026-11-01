@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Polidog\Rosanna\State\Tests\Runtime;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
 use Polidog\Rosanna\Html\H;
@@ -44,6 +45,55 @@ final class ActionFormPlacementTest extends TestCase
     private static function button(int $value = 1, string $target = 'C#0'): Element
     {
         return H::button(onClick: Action::setState(0, $value, $target), children: 'b' . $value);
+    }
+
+    /** @return iterable<string, array{\Closure(Element): Element}> */
+    public static function parentsThatDropAWrapper(): iterable
+    {
+        yield 'tbody' => [static fn(Element $child): Element => H::table(children: H::tbody(children: $child))];
+        yield 'thead' => [static fn(Element $child): Element => H::table(children: H::thead(children: $child))];
+        yield 'tfoot' => [static fn(Element $child): Element => H::table(children: H::tfoot(children: $child))];
+        yield 'table' => [static fn(Element $child): Element => H::table(children: $child)];
+        yield 'tr' => [static fn(Element $child): Element => H::table(children: H::tbody(children: H::tr(children: $child)))];
+        yield 'select' => [static fn(Element $child): Element => H::select(children: $child)];
+    }
+
+    /**
+     * RT-4.10 パーサーがラッパーを外に出し、部分更新が親を書き換えるので、描画のときに止める。
+     *
+     * @param \Closure(Element): Element $parent
+     */
+    #[DataProvider('parentsThatDropAWrapper')]
+    public function testRT410AWrapperWhereTheParserDropsItIsRejected(\Closure $parent): void
+    {
+        $row = fc(static fn(): Element => H::tr(children: H::td(children: 'x')), key: 'row', storageType: StorageType::Memory);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessageMatches('/cannot be a child of/');
+
+        self::html(static fn(): Element => $parent($row()));
+    }
+
+    /** RT-4.10 Fragment は要素にならないので、その親で判定する */
+    public function testRT410AFragmentDoesNotHideTheParent(): void
+    {
+        $row = fc(static fn(): Element => H::tr(), key: 'row', storageType: StorageType::Memory);
+
+        $this->expectException(\RuntimeException::class);
+
+        self::html(static fn(): Element => H::table(children: H::tbody(children: new Element('Fragment', [], [$row()]))));
+    }
+
+    public function testRT410AWrapperInACellOrABlockIsAccepted(): void
+    {
+        $cell = fc(static fn(): Element => H::span(children: 'x'), key: 'cell', storageType: StorageType::Memory);
+
+        $html = self::html(static fn(): Element => H::div(children: [
+            H::table(children: H::tbody(children: H::tr(children: H::td(children: $cell())))),
+            H::ul(children: H::li(children: $cell())),
+        ]));
+
+        self::assertStringContainsString('<td><div data-rosanna=', $html);
     }
 
     private static function formOfButton(\Dom\HTMLDocument $document, ?\Dom\Element $button): \Dom\Element

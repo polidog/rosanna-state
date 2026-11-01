@@ -177,6 +177,8 @@ echo RenderContext::run($app->scope($request), fn(): string => $app->renderEleme
 - **We recommend passing a key to `fc()`.** Without one, instances are told apart by their order under the same name, so a change of order swaps their state. The ID does not include the file's path, so closures on the same line of same-named files in different directories get the same name and only a key can separate them.
 - For per-row or per-record state, pass a `key` prop (string or int). Combined with the `fc()` key it becomes `task/a`.
 - Rendering one ID twice shares its state. This is not detected.
+- An unkeyed child inside a class component is numbered within that instance. Its ID looks like `FC@a.php:3#<parent ID>/0`, so it grows with the parent's ID (mind the 255-byte limit).
+- A component has a wrapper `<div>`, so it cannot be a direct child of `table`, `tbody`, `tr`, `select` and the like: rendering throws `RuntimeException`. The parser would move the `<div>` out and partial updates would break the table. Put it inside a `td`, or make one component own the whole table.
 - Moving `fc()` to another line changes the closure's ID, and the state starts over.
 - Actions for an ID over 255 bytes or containing control characters get a 400.
 
@@ -353,7 +355,7 @@ echo $app->render(Counter::class);
 
 - `render()` and `createElement()` take the registered name or the class name. Anything unregistered throws `LogicException`.
 - The second argument of `$app->render(Counter::class, 'item-1')` is the key.
-- Registered classes are created with `new` and no arguments. Do not register a class whose constructor needs arguments; let the host build its `Element`.
+- Registered classes are created with `new` and no arguments. Do not register a class whose constructor needs arguments; let the host build its `Element`. The storage in `#[Component]` still applies.
 - `#[Component(name: '...', storage: 'snapshot', persist: 'sessionStorage')]` sets the name and storage.
 - This example has no secret, so the signing key lives in the session and opening the page starts one. Call `setSnapshotSecret()` to avoid that.
 
@@ -863,7 +865,7 @@ Signatures, CSRF and URL filtering guarantee how values travel. The following is
 - **`useState` values are client input.** The server computes a setter's value, but a user can resend any action rendered for them as often as they like. **Do not derive authorization, amounts, payment completion or user IDs from hook state.** Read those from `$_SESSION` or a database while rendering.
 - **Snapshots appear in HTML in plain text.** The HMAC stops tampering, not reading. Keep secrets and personal data out.
 - **Snapshots can be replayed and do not expire.** They stay valid until the key changes (or the session ID, for session-bound ones). Persistent lets anyone with the link reproduce the state. The client also chooses what to send in `_rosanna_snapshots[]`.
-- **Do not trust snapshot values through an ancestor's props.** A partial update that carries a snapshot of anything but a descendant of its target gets a 400. A plain POST without `X-Rosanna-Partial` skips this check, because a full-page answer without JavaScript needs the page's snapshots to travel. Do not use an ancestor's state for an authorization decision passed down to a child.
+- **Do not trust snapshot values through an ancestor's props.** On a partial update of a child, `rosanna.js` carries the snapshots of its ancestors in `_rosanna_ancestors[]` and the child renders with those values. As long as a snapshot is signed, the client can choose a value from any point in time. Carrying anything but a descendant of the target in `_rosanna_snapshots[]` gets a 400, but that check does not stop ancestor values. A plain POST without `X-Rosanna-Partial` skips this check, because a full-page answer without JavaScript needs the page's snapshots to travel. Do not use an ancestor's state for an authorization decision passed down to a child.
 - **With the Session behavior, the POST route still accepts a snapshot from another session.** `_rosanna_snapshot` in the URL is not read, but `_rosanna_snapshot` in an action that passes verification can write an unbound value into your own slot. CSRF protection applies, so only your own session is affected; this falls under hook state being client input.
 - **`/_defer/{name}` is a public GET without authentication, outside the host's protection,** even for a defer on a protected page. Check access inside the component. **The query becomes props and is untrusted input.** Validate it, and never let it reach tag names, attribute names or `onClick` and friends.
 - **`H` and `Renderer` have their own output rules,** such as the unescaped content of `<style>` and `<script>` and the handling of tag and attribute names. See [the notes in `polidog/rosanna`](https://github.com/polidog/rosanna#security-notes).

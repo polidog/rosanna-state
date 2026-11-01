@@ -10,6 +10,7 @@ use Polidog\Rosanna\State\Action;
 use Polidog\Rosanna\State\ComponentState;
 use Polidog\Rosanna\State\ComponentWrapper;
 use Polidog\Rosanna\State\HookSupport;
+use Polidog\Rosanna\State\Protocol\WrapperSearch;
 use Polidog\Rosanna\State\RenderPass;
 use Polidog\Rosanna\State\Storage\StorageType;
 
@@ -29,7 +30,7 @@ abstract class BaseComponent implements ComponentInterface, ResolvesItself
     }
 
     /**
-     * setter の Action に storageType を入れない。action の処理時にレジストリの設定で決める (RT-5.3)。
+     * 登録できないクラスはレジストリで保存先を決められないので、setter の Action にインスタンスの保存先を入れる (RT-5.3)。
      *
      * @template T
      * @param T $initial
@@ -45,7 +46,7 @@ abstract class BaseComponent implements ComponentInterface, ResolvesItself
         }
 
         /** @var array{0: T, 1: callable(T): Action} */
-        return HookSupport::useState($this->componentState, $initial, null);
+        return HookSupport::useState($this->componentState, $initial, $this->componentState->getStorageType());
     }
 
     /** state が設定済みのインスタンスは、新しい番号を取らず同じ状態を読む (RT-5.4) */
@@ -69,7 +70,8 @@ abstract class BaseComponent implements ComponentInterface, ResolvesItself
                 ComponentState::setCurrent($state);
             }
             ComponentState::reset();
-            $result = $this->render();
+            $instanceId = $state->getComponentId();
+            $result = RenderPass::inClassScope($instanceId, fn(): Element => WrapperSearch::expand($this->render()));
 
             // スナップショットには描画で使われたフックの値が要る
             return new Element('div', ComponentWrapper::propsInScope($state, $attribute?->persist), [$result]);

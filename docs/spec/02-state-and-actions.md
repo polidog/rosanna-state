@@ -276,6 +276,10 @@ public function snapshotSerializer(): ?SnapshotSerializer;
   防ぐ。ツリーにない ID は問題にしない。action で隠れた子孫がこの形になるため (`usePHP/src/UsePHP.php:2562-2567`, `:2619-2627`)。
   探索が対象を見つけた後も、replay が描画したすべての根を調べる。登録クラスの部分更新では検査しない。描画するのは対象の中だけなので、祖先の状態が届かない。
   `X-Rosanna-Partial` を外せばこの検査は通らない。SN-19 が運搬を必要とするため。祖先の props でスナップショットの値を信頼しないことを README に書く。
+  祖先を運ぶ正規の欄は SN-32 で、ここの検査の対象ではない。この検査は祖先の状態が出力に届くことを防がない。
+- **SN-32** `rosanna.js` は部分更新で、祖先の Snapshot のスナップショットを `_rosanna_ancestors[]` で運ぶ。子の props や子の有無を決める祖先の状態が replay に要るため。
+  これがないと子の表示が祖先の初期値で描かれ、子が見つからなければ redirect で状態を失い、JavaScript なしの結果と食い違う (Chromium で再現した)。検証は SN-13、SN-14、SN-15、SN-16、SN-17 と同じ。
+  **信頼の境界は変わらない。** 検証を通った古いスナップショットを選んで祖先の値として渡すことは、`X-Rosanna-Partial` を外した POST で元からできる。
 - **SN-19** JavaScript なしの全ページ応答は、各 action フォームにページ上の検証を通るスナップショットを hidden で足す。ラッパーが 2 つ未満なら
   足さない。`script` と `style` の中の同じ形の文字列を拾わない。検証を通らない値は運ばない (`usePHP/src/UsePHP.php:2343-2382`)。
 

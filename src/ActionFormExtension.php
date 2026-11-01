@@ -20,7 +20,13 @@ use Polidog\Rosanna\State\Storage\StorageType;
  */
 final class ActionFormExtension implements RenderExtension
 {
+    /** ラッパーの div を子に持てない要素。パーサーが div を外に出す (RT-4.10) */
+    private const WRAPPER_DROPPING_PARENTS = ['table', 'thead', 'tbody', 'tfoot', 'tr', 'colgroup', 'select', 'optgroup'];
+
     private int $openFormDepth = 0;
+
+    /** @var list<string> 開いている要素の小文字のタグ */
+    private array $openTags = [];
 
     /**
      * まだ書き出していないフォーム。要素の隣に出すと form、p、tbody の中でマークアップが崩れるので溜める (RT-4.5)。
@@ -48,6 +54,7 @@ final class ActionFormExtension implements RenderExtension
 
     public function beginRender(): void
     {
+        $this->openTags = [];
         $this->sharedForms = [];
         $this->pendingForms = [];
     }
@@ -64,6 +71,34 @@ final class ActionFormExtension implements RenderExtension
     }
 
     public function renderTag(Element $element, string $lowerTag, bool $isVoid, \Closure $attributes, \Closure $content): string
+    {
+        $this->assertWrapperCanStayHere($element, $lowerTag);
+
+        $this->openTags[] = $lowerTag;
+        try {
+            return $this->renderOpenTag($element, $lowerTag, $isVoid, $attributes, $content);
+        } finally {
+            array_pop($this->openTags);
+        }
+    }
+
+    /** @throws \RuntimeException 部分更新が親を書き換える場所にラッパーがあるとき (RT-4.10) */
+    private function assertWrapperCanStayHere(Element $element, string $lowerTag): void
+    {
+        $parent = $this->openTags === [] ? null : $this->openTags[array_key_last($this->openTags)];
+        if ($parent === null || $lowerTag !== 'div' || !isset($element->props['data-rosanna']) || !in_array($parent, self::WRAPPER_DROPPING_PARENTS, true)) {
+            return;
+        }
+
+        throw new \RuntimeException(sprintf(
+            'Component %s cannot be a child of <%s>: its wrapper is a <div>, which the HTML parser moves out of the element, so partial updates would rewrite the parent. '
+            . 'Put the component inside a <td>, or make one component own the whole table or select.',
+            (string) $element->props['data-rosanna'],
+            $parent,
+        ));
+    }
+
+    private function renderOpenTag(Element $element, string $lowerTag, bool $isVoid, \Closure $attributes, \Closure $content): string
     {
         if ($isVoid || !isset($element->props['data-rosanna'])) {
             return $this->renderTagBody($element, $lowerTag, $isVoid, false, $attributes, $content);

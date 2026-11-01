@@ -632,6 +632,7 @@
         const defer = ownField('_rosanna_defer');
         if (defer) data.set('_rosanna_defer', defer.value);
         setDescendantSnapshots(data, component);
+        setAncestorSnapshots(data, component);
         return data;
     }
 
@@ -649,6 +650,15 @@
         data.delete('_rosanna_snapshots[]');
         for (const descendant of component.querySelectorAll('[data-rosanna-snapshot]')) {
             data.append('_rosanna_snapshots[]', descendant.getAttribute('data-rosanna-snapshot'));
+        }
+    }
+
+    // SN-32 子の props を決める祖先の状態を replay に渡す。JavaScript なしの送信と同じ結果にするため
+    function setAncestorSnapshots(data, component) {
+        data.delete('_rosanna_ancestors[]');
+        for (let el = enclosingInstance(component); el; el = enclosingInstance(el)) {
+            const snapshot = el.getAttribute('data-rosanna-snapshot');
+            if (snapshot !== null) data.append('_rosanna_ancestors[]', snapshot);
         }
     }
 
@@ -735,6 +745,7 @@
         const current = component.getAttribute('data-rosanna-snapshot');
         if (current !== null && !data.has('_rosanna_snapshot')) data.set('_rosanna_snapshot', current);
         setDescendantSnapshots(data, component);
+        setAncestorSnapshots(data, component);
         return data;
     }
 

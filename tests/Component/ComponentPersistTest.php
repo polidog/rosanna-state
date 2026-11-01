@@ -86,7 +86,7 @@ final class ComponentPersistTest extends TestCase
         RequestLifecycle::reset();
     }
 
-    public function testRT53SetterHasNoStorageType(): void
+    public function testRT53SetterCarriesTheStorageTypeOfTheInstance(): void
     {
         $child = new MemoryChild();
         $state = ComponentState::getInstance('memory-child#0', StorageType::Memory);
@@ -105,7 +105,7 @@ final class ComponentPersistTest extends TestCase
         $component->render();
 
         $action = ($component->setter)(2);
-        self::assertNull($action->storageType);
+        self::assertSame(StorageType::Memory, $action->storageType);
         self::assertSame('memory-child#0', $action->componentId);
     }
 

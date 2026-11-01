@@ -15,6 +15,9 @@ final class RenderPass
     /** @var list<string> */
     private static array $componentStack = [];
 
+    /** key のない子を数える範囲。クラスのインスタンス ID (RT-8.6) */
+    private static ?string $classScope = null;
+
     /** 新しいパスを始める */
     public static function beginRender(): void
     {
@@ -46,18 +49,42 @@ final class RenderPass
     }
 
     /**
-     * インスタンス ID を決める (RT-8.1)。連番はパスごと、名前ごとに数え、親の ID を含めない (RT-8.3)。
+     * インスタンス ID を決める (RT-8.1)。連番はパスごと、名前ごとに数える (RT-8.3)。
+     * クラスの中では、そのインスタンスの中で数えて ID に含める (RT-8.6)。
      *
      * @internal
      */
     public static function nextInstanceId(string $name, ?string $key = null): string
     {
         if ($key === null) {
-            $key = (string) (self::$instanceCounts[$name] ?? 0);
-            self::$instanceCounts[$name] = (int) $key + 1;
+            $scope = self::$classScope;
+            $counter = $scope === null ? $name : $scope . "\0" . $name;
+            $number = self::$instanceCounts[$counter] ?? 0;
+            self::$instanceCounts[$counter] = $number + 1;
+            $key = $scope === null ? (string) $number : "{$scope}/{$number}";
         }
 
         return $name . '#' . $key;
+    }
+
+    /**
+     * $fn の間、key のない子をこのインスタンスの中で数える。クラスの部分更新はページを描かないので、
+     * ページの中の順番に頼ると別のインスタンスの子と番号が重なる (RT-8.6)。
+     *
+     * @internal
+     * @template T
+     * @param callable(): T $fn
+     * @return T
+     */
+    public static function inClassScope(string $instanceId, callable $fn): mixed
+    {
+        $outer = self::$classScope;
+        self::$classScope = $instanceId;
+        try {
+            return $fn();
+        } finally {
+            self::$classScope = $outer;
+        }
     }
 
     /**
@@ -106,5 +133,6 @@ final class RenderPass
     {
         self::$instanceCounts = [];
         self::$componentStack = [];
+        self::$classScope = null;
     }
 }
