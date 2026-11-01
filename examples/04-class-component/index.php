@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-use Polidog\Rosanna\Component\BaseComponent;
-use Polidog\Rosanna\Component\Component;
 use Polidog\Rosanna\Html\H;
-use Polidog\Rosanna\Http\Request;
-use Polidog\Rosanna\Rosanna;
 use Polidog\Rosanna\Runtime\Element;
+use Polidog\Rosanna\State\Component\BaseComponent;
+use Polidog\Rosanna\State\Component\Component;
+use Polidog\Rosanna\State\Http\Request;
+use Polidog\Rosanna\State\RosannaState;
 
 require_once __DIR__ . '/../layout.php';
 
@@ -38,7 +38,7 @@ final class ExampleTabs extends BaseComponent
     }
 }
 
-$app = new Rosanna();
+$app = new RosannaState();
 $app->setSnapshotSecret((string) getenv('ROSANNA_SNAPSHOT_SECRET'));
 $app->register(ExampleTabs::class);
 

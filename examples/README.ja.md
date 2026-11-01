@@ -10,7 +10,7 @@
 
 ```bash
 composer install
-bin/rosanna compile examples/10-psx/components --cache=examples/10-psx/var/cache/psx   # 10-psx を動かすときだけ
+bin/rosanna-state compile examples/10-psx/components --cache=examples/10-psx/var/cache/psx   # 10-psx を動かすときだけ
 ROSANNA_SNAPSHOT_SECRET=$(php -r 'echo bin2hex(random_bytes(32));') php -S localhost:8000 examples/router.php
 ```
 
@@ -31,13 +31,13 @@ http://localhost:8000 を開くと一覧が出ます。
 | [07-live-search](07-live-search/index.php) | 入力に合わせて絞り込む。フォーカスは残る | `onInput`、`StorageType::Snapshot` | ボタンで送れば動く |
 | [08-guard](08-guard/index.php) | host がページを保護する。自前のフォームと共存する | `pagePath`、`csrf()` | 動く |
 | [09-defer](09-defer/index.php) | 共通の本体と訪問者ごとの断片を分ける | `Defer`、`H::defer`、`handleDeferred` | fallback だけが見える |
-| [10-psx](10-psx/) | タグで書く。コンポーネントを入れ子にする | `.psx`、`rosanna compile`、`loadComponentManifest` | 動く |
+| [10-psx](10-psx/) | タグで書く。コンポーネントを入れ子にする | `.psx`、`rosanna-state compile`、`loadComponentManifest` | 動く |
 
 ## 読むときの注意
 
 - **秘密鍵は環境変数から読みます。** サーバーを起動し直すと上のコマンドでは鍵が変わるので、開いたままのページの操作は失敗します。開き直してください。
 - **サンプルの間でセッションを共有します。** 同じオリジンで動かしているからです。状態が混ざらないよう、`fc()` の key をサンプルごとに変えています。
-- **[router.php](router.php) はサンプルを並べるためのものです。** 自分のアプリでは host のルーターかページごとの PHP ファイルが同じ役割を持ちます。`/rosanna.js` の配信も `vendor/bin/rosanna publish` で `public/` に置く形にしてください。
+- **[router.php](router.php) はサンプルを並べるためのものです。** 自分のアプリでは host のルーターかページごとの PHP ファイルが同じ役割を持ちます。`/rosanna.js` の配信も `vendor/bin/rosanna-state publish` で `public/` に置く形にしてください。
 - **08-guard のサインインはパスワードを確かめません。** 保護の順番を見せるためのものです。
 - **フォームの値を配列に追加する hook はありません。** `useFormAction` は欄の値を hook に上書きするだけです。入力した文字列を一覧に足す ToDo のような画面は、host の普通のフォームでデータベースに書き、描画のときに読み出してください。行ごとの操作は 03-cart の形で書けます。
 

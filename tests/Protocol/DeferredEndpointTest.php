@@ -2,27 +2,27 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Protocol;
+namespace Polidog\Rosanna\State\Tests\Protocol;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
-use Polidog\Rosanna\Component\Defer;
 use Polidog\Rosanna\Html\H;
-use Polidog\Rosanna\Rosanna;
-use Polidog\Rosanna\Runtime\ComponentState;
 use Polidog\Rosanna\Runtime\Element;
-
-use function Polidog\Rosanna\Runtime\fc;
-
-use Polidog\Rosanna\Runtime\FunctionComponent;
 use Polidog\Rosanna\Runtime\RenderContext;
 use Polidog\Rosanna\Runtime\RequestLifecycle;
+use Polidog\Rosanna\State\Component\Defer;
+use Polidog\Rosanna\State\ComponentState;
 
-use function Polidog\Rosanna\Runtime\useState;
+use function Polidog\Rosanna\State\fc;
 
-use Polidog\Rosanna\Storage\StorageType;
-use Polidog\Rosanna\Tests\Protocol\Fixtures\DeferredPanel;
-use Polidog\Rosanna\Tests\Protocol\Support\ActionRequests;
+use Polidog\Rosanna\State\FunctionComponent;
+use Polidog\Rosanna\State\RenderPass;
+use Polidog\Rosanna\State\RosannaState;
+use Polidog\Rosanna\State\Storage\StorageType;
+use Polidog\Rosanna\State\Tests\Protocol\Fixtures\DeferredPanel;
+use Polidog\Rosanna\State\Tests\Protocol\Support\ActionRequests;
+
+use function Polidog\Rosanna\State\useState;
 
 /** 02 の 8 節。DF-8 の Set-Cookie とセッションは tests/Integration/DeferEndpointFlowTest */
 final class DeferredEndpointTest extends TestCase
@@ -46,9 +46,9 @@ final class DeferredEndpointTest extends TestCase
         return fc(static fn(array $props): Element => H::p(children: (string) json_encode($props)), key: 'echo', storageType: StorageType::Memory, defer: new Defer('echo'));
     }
 
-    private static function app(): Rosanna
+    private static function app(): RosannaState
     {
-        return new Rosanna()->setSnapshotSecret('defer-fixture-key-66')
+        return new RosannaState()->setSnapshotSecret('defer-fixture-key-66')
             ->registerComponent('App\\Echo', self::echoProps())
             ->registerDeferred('echo', 'App\\Echo');
     }
@@ -95,12 +95,12 @@ final class DeferredEndpointTest extends TestCase
     public function testDF3InvalidNameThrows(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        new Rosanna()->registerDeferred('a/b', 'App\\X');
+        new RosannaState()->registerDeferred('a/b', 'App\\X');
     }
 
     public function testDF3RegisteringTheSameClassAgainDoesNothing(): void
     {
-        $app = new Rosanna()->setSnapshotSecret('s-fixture-secret-key')->register(DeferredPanel::class)->register(DeferredPanel::class);
+        $app = new RosannaState()->setSnapshotSecret('s-fixture-secret-key')->register(DeferredPanel::class)->register(DeferredPanel::class);
 
         $response = $app->handleDeferred(self::get('/_defer/panel'));
 
@@ -143,7 +143,7 @@ final class DeferredEndpointTest extends TestCase
         self::assertSame('private, max-age=0', $default->headers['Cache-Control']);
         self::assertSame('text/html; charset=UTF-8', $default->headers['Content-Type']);
 
-        $withPanel = new Rosanna()->setSnapshotSecret('s-fixture-secret-key')->register(DeferredPanel::class)->handleDeferred(self::get('/_defer/panel'));
+        $withPanel = new RosannaState()->setSnapshotSecret('s-fixture-secret-key')->register(DeferredPanel::class)->handleDeferred(self::get('/_defer/panel'));
         self::assertNotNull($withPanel);
         self::assertSame('private, max-age=30', $withPanel->headers['Cache-Control']);
     }
@@ -152,7 +152,7 @@ final class DeferredEndpointTest extends TestCase
     {
         $inner = fc(static fn(): Element => H::p(children: 'inner body'), key: 'inner', storageType: StorageType::Memory, defer: new Defer('inner'));
         $outer = fc(static fn(): Element => H::div(children: ['outer body', $inner()]), key: 'outer', storageType: StorageType::Memory, defer: new Defer('outer'));
-        $app = new Rosanna()->registerComponent('App\\Outer', $outer)->registerDeferred('outer', 'App\\Outer');
+        $app = new RosannaState()->registerComponent('App\\Outer', $outer)->registerDeferred('outer', 'App\\Outer');
 
         $response = $app->handleDeferred(self::get('/_defer/outer'));
 
@@ -165,17 +165,17 @@ final class DeferredEndpointTest extends TestCase
     public function testDF6AnEndpointRendersInANewPass(): void
     {
         $app = self::app();
-        RenderContext::nextInstanceId('X');
-        $pass = RenderContext::currentPass();
+        RenderPass::nextInstanceId('X');
+        $pass = RenderPass::currentPass();
 
         $app->handleDeferred(self::get('/_defer/echo'));
 
-        self::assertSame($pass['instanceCounts']['X'], RenderContext::currentPass()['instanceCounts']['X']);
+        self::assertSame($pass['instanceCounts']['X'], RenderPass::currentPass()['instanceCounts']['X']);
     }
 
     public function testDF7ExceptionIsHiddenAndLogged(): void
     {
-        $app = new Rosanna()->registerComponent('App\\Boom', static function (): never {
+        $app = new RosannaState()->registerComponent('App\\Boom', static function (): never {
             throw new \RuntimeException('/srv/app/secret/path.php');
         })->registerDeferred('boom', 'App\\Boom');
         $level = ob_get_level();
@@ -193,7 +193,7 @@ final class DeferredEndpointTest extends TestCase
 
     public function testDF7ARenderFailureIsHiddenToo(): void
     {
-        $app = new Rosanna()->registerComponent('App\\Bad', static fn(): Element => new Element('b"ad'))->registerDeferred('bad', 'App\\Bad');
+        $app = new RosannaState()->registerComponent('App\\Bad', static fn(): Element => new Element('b"ad'))->registerDeferred('bad', 'App\\Bad');
 
         $response = $app->handleDeferred(self::get('/_defer/bad'));
 
@@ -204,7 +204,7 @@ final class DeferredEndpointTest extends TestCase
 
     public function testDF7UnknownTargetIsA500(): void
     {
-        $response = new Rosanna()->registerDeferred('x', 'App\\Missing')->handleDeferred(self::get('/_defer/x'));
+        $response = new RosannaState()->registerDeferred('x', 'App\\Missing')->handleDeferred(self::get('/_defer/x'));
 
         self::assertNotNull($response);
         self::assertSame(500, $response->status);
@@ -214,7 +214,7 @@ final class DeferredEndpointTest extends TestCase
     /** DF-10 エンドポイントの描画の間の署名は defer:{name} で、どのページへの POST でも通る (SG-6) */
     public function testDF10EndpointFormsAreSignedForTheDeferScope(): void
     {
-        $app = new Rosanna()->setSnapshotSecret('defer-fixture-key-66')
+        $app = new RosannaState()->setSnapshotSecret('defer-fixture-key-66')
             ->registerComponent('App\\C', fc(static function (): Element {
                 [$n, $set] = useState(0);
 
@@ -234,7 +234,7 @@ final class DeferredEndpointTest extends TestCase
         }
 
         // 登録がなければ通らない
-        $unregistered = new Rosanna()->setSnapshotSecret('defer-fixture-key-66');
+        $unregistered = new RosannaState()->setSnapshotSecret('defer-fixture-key-66');
         $post = $unregistered->actions()->handle(self::post($fields, uri: '/one'));
         self::assertNotNull($post);
         self::assertSame('Invalid action signature', $post->body);
@@ -265,12 +265,12 @@ final class DeferredEndpointTest extends TestCase
     public function testDF11BadPrefixThrows(string $prefix): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        new Rosanna()->setDeferPrefix($prefix);
+        new RosannaState()->setDeferPrefix($prefix);
     }
 
     public function testClassEndpointSeesTheQueryInGetAndRestoresIt(): void
     {
-        $app = new Rosanna()->setSnapshotSecret('s-fixture-secret-key')->register(DeferredPanel::class);
+        $app = new RosannaState()->setSnapshotSecret('s-fixture-secret-key')->register(DeferredPanel::class);
         $outer = $_GET;
 
         $response = $app->handleDeferred(self::get('/_defer/panel?topic=a'));

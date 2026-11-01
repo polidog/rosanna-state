@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Http;
+namespace Polidog\Rosanna\State\Tests\Http;
 
-use Polidog\Rosanna\Tests\Storage\SessionServerTestCase;
+use Polidog\Rosanna\State\Tests\Storage\SessionServerTestCase;
 
 final class HttpGlobalsTest extends SessionServerTestCase
 {

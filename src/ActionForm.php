@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Runtime;
+namespace Polidog\Rosanna\State;
 
-use Polidog\Rosanna\Storage\StorageType;
+use Polidog\Rosanna\State\Storage\StorageType;
 
 /**
  * 書き出す前のフォーム。CSRF トークンとスナップショットは書き出すときに読むので、ここには持たない (RT-4.6)。

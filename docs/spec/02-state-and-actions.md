@@ -4,13 +4,14 @@ Status: Draft (2026-11-01、usePHP v0.10.0 / Relayer main 9566b0c で照合)
 
 Rosanna の状態管理、Action、署名、CSRF、defer の入口、クライアントの `rosanna.js` の振る舞いを定める。
 
-前提は[計画書](../design/rosanna-split-and-rename.md)。コードはコピーせず、ここに書いた振る舞いを新しく実装する。根拠の
+前提は[計画書](https://github.com/polidog/rosanna/blob/main/docs/design/rosanna-split-and-rename.md)。コードはコピーせず、ここに書いた振る舞いを新しく実装する。根拠の
 `usePHP/...` は参照元の場所で、`README` は `usePHP/README.ja.md` を指す。
 
 別の仕様の範囲:
 
-- `01-runtime.md`: `H`、Renderer、Component、hooks、描画スコープ (`RenderScope`)、本体の描画 API、publish
-- `03-compiler.md`: PSX、コンパイラ (`src/Psx/`)
+- [`01-runtime.md`](01-runtime.md): フォームの束縛と配置、Component、hooks、状態層のスコープ (`StateScope`)、`RosannaState` の API、publish
+- [本体の `01-runtime.md`](https://github.com/polidog/rosanna/blob/main/docs/spec/01-runtime.md): `H`、Renderer、描画スコープ (`RenderScope`)、`Rosanna` の描画 API
+- [本体の `03-compiler.md`](https://github.com/polidog/rosanna/blob/main/docs/spec/03-compiler.md): PSX、コンパイラ (`src/Psx/`)
 
 要件には ID を振る。テストの項目はこの ID を参照する。
 
@@ -33,7 +34,7 @@ Rosanna の状態管理、Action、署名、CSRF、defer の入口、クライ�
 HTTP の入出力は独自の値オブジェクトで受ける。グローバルの `$_POST` や `header()` を処理の途中で直接触らない。
 
 ```php
-namespace Polidog\Rosanna\Http;
+namespace Polidog\Rosanna\State\Http;
 
 final readonly class Request
 {
@@ -73,7 +74,7 @@ final readonly class Response
 - **RQ-2** `Response` を返す処理は `header()`、`echo`、`exit`、`http_response_code()` を呼ばない。送信するのは host か
   `send()` だけ。`withExitHandler`、`withHeaderEmitter` は作らない。例外は PHP の `session_start()` が送る Cookie で、
   これは PHP 自身が送る。
-- **RQ-3** リクエストごとの情報を `Rosanna` のインスタンスに残さない。Relayer のワーカーは同じインスタンスで別のリクエストを
+- **RQ-3** リクエストごとの情報を `RosannaState` のインスタンスに残さない。Relayer のワーカーは同じインスタンスで別のリクエストを
   処理する (`relayer/src/Router/ActionReplayRouter.php:23`)。
 
 ### 識別子
@@ -109,10 +110,10 @@ final readonly class Response
 
 ### 公開 API
 
-名前空間は usePHP の下位を保つ (`Polidog\UsePhp` を置換するだけで移行できるようにする)。
+名前空間は `Polidog\Rosanna\State\` の下で usePHP の下位の名前を保つ。ただし `Runtime\*` は `State\*` に平らにし、`Runtime\Snapshot` は `State\Snapshot\Snapshot` に置く。`new` と `use` の置換だけでは移行できない ([`README.ja.md`](../../README.ja.md) の移行手順)。
 
 ```php
-namespace Polidog\Rosanna\Storage;
+namespace Polidog\Rosanna\State\Storage;
 
 enum StorageType: string { case Session = 'session'; case Memory = 'memory'; case Snapshot = 'snapshot'; }
 enum SnapshotPersist: string { case SessionStorage = 'sessionStorage'; case LocalStorage = 'localStorage'; }
@@ -126,7 +127,7 @@ interface StateStorageInterface
     public function clearByPrefix(string $prefix): void;
 }
 
-namespace Polidog\Rosanna\Runtime;
+namespace Polidog\Rosanna\State;
 
 final class ComponentState
 {
@@ -191,7 +192,7 @@ Snapshot ストレージの状態をページに置いて往復させる。サ�
 ### 公開 API
 
 ```php
-namespace Polidog\Rosanna\Runtime;
+namespace Polidog\Rosanna\State\Snapshot;
 
 final readonly class Snapshot
 {
@@ -213,7 +214,7 @@ final readonly class Snapshot
     public static function fromJson(string $json): self;
 }
 
-namespace Polidog\Rosanna\Snapshot;
+namespace Polidog\Rosanna\State\Snapshot;
 
 final class SnapshotVerificationException extends \RuntimeException {}
 
@@ -281,7 +282,7 @@ public function snapshotSerializer(): ?SnapshotSerializer;
 ### 2.4 URL での運搬
 
 ```php
-namespace Polidog\Rosanna\Snapshot;
+namespace Polidog\Rosanna\State\Snapshot;
 
 final class SnapshotUrl
 {
@@ -308,7 +309,7 @@ usePHP はルートで `SnapshotBehavior` を宣言していた。ルーター�
 既定の Isolated だけを使っている。Shared はルートのグループの概念なので作らない。`SimpleRouter::setSnapshotParam()` の移し先も作らず、`_rosanna_snapshot` に固定する。
 
 ```php
-namespace Polidog\Rosanna\Snapshot;
+namespace Polidog\Rosanna\State\Snapshot;
 
 enum SnapshotBehavior: string { case Isolated = 'isolated'; case Persistent = 'persistent'; case Session = 'session'; }
 
@@ -367,7 +368,7 @@ public function restoreSnapshots(Request $request, SnapshotBehavior $behavior = 
 ### 公開 API
 
 ```php
-namespace Polidog\Rosanna\Runtime;
+namespace Polidog\Rosanna\State;
 
 final readonly class Action
 {
@@ -409,7 +410,7 @@ final class StateDiff
     public static function hash(mixed $value): string;
 }
 
-namespace Polidog\Rosanna\Protocol;
+namespace Polidog\Rosanna\State\Protocol;
 
 final readonly class ActionEnvelope
 {
@@ -527,7 +528,7 @@ final readonly class ActionEnvelope
 ### 公開 API
 
 ```php
-namespace Polidog\Rosanna\Protocol;
+namespace Polidog\Rosanna\State\Protocol;
 
 final class ActionSigner
 {
@@ -558,7 +559,7 @@ public function signer(): ActionSigner;
   エンドポイントには保護がなく誰でも新しいフォームを取れるので、これで渡すものはない。POST 先のページの host による保護は実行される。部分更新で出すフォームは
   そのページで署名し直す (`usePHP/src/UsePHP.php:911-928`)。
 - **SG-7** 比較は `hash_equals`。リクエストのどのフィールドも scope を選ばない (`ActionPageBindingTest::testNoClientFieldChoosesTheBinding`)。
-- **SG-8** 描画中の署名は `RenderScope::$signingScope` (`01-runtime.md` の 9 節) を使い、検証は host が `handle()` に渡した `Request` のパスを使う。`$pagePath` の指定があればそれを優先する。グローバルの `REQUEST_URI` を直接読まない。Relayer はロケールなどの書き換えの
+- **SG-8** 描画中の署名は `StateScope::$signingScope` (`01-runtime.md` の 9 節) を使い、検証は host が `handle()` に渡した `Request` のパスを使う。`$pagePath` の指定があればそれを優先する。グローバルの `REQUEST_URI` を直接読まない。Relayer はロケールなどの書き換えの
   後のパスを渡す (`SecurityHardeningTest::testRunBindsAnActionToThePathItWasGivenNotTheRawUri`)。
 - **SG-9** `ActionSigner` も SN-4 と同じく 16 バイト未満の鍵を受け付けない。`null` はセッションごとの鍵を意味する (SG-2)。
 
@@ -585,7 +586,7 @@ public function signer(): ActionSigner;
 ### 公開 API
 
 ```php
-namespace Polidog\Rosanna\Protocol;
+namespace Polidog\Rosanna\State\Protocol;
 
 final class CsrfGuard
 {
@@ -689,7 +690,7 @@ action の POST を受け、状態を更新して応答を決める。**応答�
 ### 公開 API
 
 ```php
-namespace Polidog\Rosanna\Protocol;
+namespace Polidog\Rosanna\State\Protocol;
 
 final class ActionHandler
 {
@@ -714,7 +715,7 @@ public function actions(): ActionHandler;
 $response = $app->actions()->handle($request, replay: fn (bool $partial) => $this->renderPage(/* ... */));
 
 // 素の PHP
-$app = new Rosanna();
+$app = new RosannaState();
 $app->register(Counter::class);
 $request = Request::fromGlobals();
 $response = $app->actions()->handle($request, replay: fn () => $app->render(Counter::class));
@@ -815,7 +816,7 @@ echo $app->render(Counter::class);
 
 ### 目的
 
-一部のコンポーネントをページの読み込み後に別のリクエストで取得する。ページを CDN に載せつつ、訪問者ごとの部分を分ける。属性の `Defer` と `H::defer()` は `01-runtime.md`。
+一部のコンポーネントをページの読み込み後に別のリクエストで取得する。ページを CDN に載せつつ、訪問者ごとの部分を分ける。属性の `Defer` は `01-runtime.md`、`H::defer()` は[本体の 01](https://github.com/polidog/rosanna/blob/main/docs/spec/01-runtime.md)。`H::defer()` は `Element` を作るだけで、状態層なしで描画すると案内の例外になる (本体の RT-3.16)。
 
 ### 公開 API
 
@@ -855,7 +856,7 @@ $response = $app->handleDeferred(Request::fromGlobals());
 - **DF-10** 描画のあいだ、署名の scope は `defer:{name}` (SG-6)。
 - **DF-11** defer の URL は常に prefix から始める。Relayer のロケールの接頭辞は付かない (`relayer/src/Router/AppRouter.php:470-476`)。
 - **DF-12** `/_defer/{name}` は認証なしの公開の GET で、host の保護の対象外である。props は信頼しない入力であることをドキュメントに書く (README 1205 行)。
-- **DF-13** PSX の defer は、`loadComponentManifest()` が deferred manifest の項目を `registerDeferred()` に渡して登録する (`01-runtime.md` の RT-11.5、`03-compiler.md` の 8 節)。
+- **DF-13** PSX の defer は、`RosannaState::loadComponentManifest()` が deferred manifest の項目を `registerDeferred()` に渡して登録する。本体の `Rosanna::loadComponentManifest()` は deferred manifest を読まないので、`RosannaState` が読む (本体の RT-11.5、[本体 03](https://github.com/polidog/rosanna/blob/main/docs/spec/03-compiler.md) の 8 節)。deferred manifest がない、または build ID (本体の CP-144) が `manifest.php` と合わないときは、`vendor/bin/rosanna-state compile` を案内する `RuntimeException` にする。`rosanna compile` の成果物を黙って defer なしとして受け入れない。
 
 ### エラー
 
@@ -885,7 +886,7 @@ window.Rosanna.restoreSnapshots(root?)
 window.Rosanna.forgetSnapshots(root?)
 ```
 
-PHP の `Rosanna::renderClientScript(string $src = '/rosanna.js', ?string $deferPrefix = null)` は `01-runtime.md`。外部ファイルが読めないときだけ defer を 1 回取得するインラインの fallback を含む
+PHP の `RosannaState::renderClientScript(string $src = '/rosanna.js', ?string $deferPrefix = null, ?string $nonce = null)` は `01-runtime.md`。外部ファイルが読めないときだけ defer を 1 回取得するインラインの fallback を含む
 (`usePHP/src/UsePHP.php:70-115`)。
 
 ### 部分更新
@@ -969,14 +970,14 @@ PHP の `Rosanna::renderClientScript(string $src = '/rosanna.js', ?string $defer
 | スナップショットの HMAC | `434527d` | SN-2、SN-3、SN-4、SN-10 |
 | CSRF | `434527d` | CS-1〜CS-8 |
 | open redirect の遮断 | `434527d` | SN-20、HD-13、HD-15、JS-4 |
-| `javascript:` URL の遮断 | `434527d` | SN-20 (redirect)。属性は `01-runtime.md` の Renderer |
+| `javascript:` URL の遮断 | `434527d` | SN-20 (redirect)。属性は 本体の `01-runtime.md` の Renderer |
 | 壊れたスナップショットを検証失敗として扱う | `2ec7012` | SN-5、SN-24、SN-27 |
 | アクションの署名を描画元のページに結びつける | `88399e4` | SG-5、SG-6、SG-7、SG-8、AC-8 |
 | アクションの検証前に Cookie からセッションを再開する | `38631b0` | CS-1、CS-4、SG-3 |
-| タグ名と属性名の検証、インラインの `on*` ハンドラの拒否 | `07b7777` | `01-runtime.md` の Renderer |
-| 不正な UTF-8 で出力を空にせず置換する | `fa3a8ef` | `01-runtime.md` の Renderer。JSON の置換は SN-2 |
-| `script` と `style` の中身をエスケープせずに出力する | `34b1f1a` | `01-runtime.md` の Renderer |
-| 描画できない子要素を拒否する | `a5c5018` | `01-runtime.md` の Renderer |
+| タグ名と属性名の検証、インラインの `on*` ハンドラの拒否 | `07b7777` | 本体の `01-runtime.md` の Renderer |
+| 不正な UTF-8 で出力を空にせず置換する | `fa3a8ef` | 本体の `01-runtime.md` の Renderer。JSON の置換は SN-2 |
+| `script` と `style` の中身をエスケープせずに出力する | `34b1f1a` | 本体の `01-runtime.md` の Renderer |
+| 描画できない子要素を拒否する | `a5c5018` | 本体の `01-runtime.md` の Renderer |
 | 訪問者ごとの応答を共有キャッシュに載せない | `4621f0f` | DF-8、DF-9 |
 | クライアント JS の defer の fetch | `739714f` | JS-16、JS-19 |
 | localStorage の永続化 | `739714f` | JS-17、JS-18 |

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Runtime;
+namespace Polidog\Rosanna\State\Tests\Runtime;
 
 use PHPUnit\Framework\TestCase;
-use Polidog\Rosanna\Runtime\Snapshot;
+use Polidog\Rosanna\State\Snapshot\Snapshot;
 
 final class SnapshotTest extends TestCase
 {

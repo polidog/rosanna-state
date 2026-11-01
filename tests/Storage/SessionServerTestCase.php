@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Storage;
+namespace Polidog\Rosanna\State\Tests\Storage;
 
 use PHPUnit\Framework\TestCase;
 

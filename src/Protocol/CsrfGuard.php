@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Protocol;
+namespace Polidog\Rosanna\State\Protocol;
 
-use Polidog\Rosanna\Http\Request;
-use Polidog\Rosanna\Storage\NativeSession;
+use Polidog\Rosanna\State\Http\Request;
+use Polidog\Rosanna\State\Storage\NativeSession;
 
 /**
  * Origin の比較とセッションのトークンの 2 層 (CS-2、CS-3)。リクエストの情報は持たない (RQ-3)。

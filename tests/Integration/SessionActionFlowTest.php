@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Integration;
+namespace Polidog\Rosanna\State\Tests\Integration;
 
-use Polidog\Rosanna\Tests\Protocol\Support\ActionRequests;
+use Polidog\Rosanna\State\Tests\Protocol\Support\ActionRequests;
 
 /**
  * Session の action を実際の HTTP で確かめる (RT-12.7、ST-2、SG-2〜4、CS-1〜6、VR-4、VR-10、AC-18)。

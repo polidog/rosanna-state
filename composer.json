@@ -1,0 +1,60 @@
+{
+    "name": "polidog/rosanna-state",
+    "description": "Server-side state for Rosanna: hooks, signed actions, CSRF, snapshots, storage, defer and rosanna.js",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "polidog",
+            "email": "polidogs@gmail.com"
+        }
+    ],
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/polidog/rosanna"
+        }
+    ],
+    "require": {
+        "php": ">=8.5",
+        "polidog/rosanna": "dev-split-state-layer"
+    },
+    "require-dev": {
+        "composer/composer": "^2.8",
+        "friendsofphp/php-cs-fixer": "^3.93",
+        "phpstan/phpstan": "^2.1",
+        "phpunit/phpunit": "^11.0",
+        "vimeo/psalm": "^6.14"
+    },
+    "autoload": {
+        "psr-4": {
+            "Polidog\\Rosanna\\State\\": "src/"
+        },
+        "files": [
+            "src/Hooks.php",
+            "src/bootstrap.php"
+        ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Polidog\\Rosanna\\State\\Tests\\": "tests/"
+        }
+    },
+    "bin": [
+        "bin/rosanna-state"
+    ],
+    "extra": {
+        "branch-alias": {
+            "dev-main": "0.0.x-dev"
+        }
+    },
+    "scripts": {
+        "phpstan": "phpstan analyse",
+        "psalm": "psalm --no-progress",
+        "cs-check": "php-cs-fixer fix --dry-run --diff",
+        "cs-fix": "php-cs-fixer fix",
+        "test": "phpunit"
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}

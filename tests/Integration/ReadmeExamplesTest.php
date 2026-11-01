@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Integration;
+namespace Polidog\Rosanna\State\Tests\Integration;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -91,6 +91,38 @@ final class ReadmeExamplesTest extends TestCase
         ] as $needle) {
             self::assertStringContainsString($needle, $readme);
         }
+    }
+
+    /** 完了の条件: 初期化とホスト側の仕事を分けて書き、`new` と `use` の置換で済むとは書かない */
+    #[DataProvider('readmes')]
+    public function testInitializationAndHostDutiesAreSeparated(string $file): void
+    {
+        $readme = self::readme($file);
+
+        $headings = $file === 'README.md'
+            ? ['## Initialization', '## What the host still does', '## Migrating an app that used state on polidog/rosanna']
+            : ['## 初期化', '## host に残る仕事', '## polidog/rosanna の状態を使っていたアプリの移行'];
+        $sections = [];
+        foreach ($headings as $heading) {
+            self::assertStringContainsString("\n{$heading}\n", $readme);
+            $sections[$heading] = substr($readme, (int) strpos($readme, "\n{$heading}\n"));
+            $sections[$heading] = substr($sections[$heading], 0, (int) strpos($sections[$heading], "\n## ", 1));
+        }
+
+        self::assertStringContainsString('composer require polidog/rosanna-state', $sections[$headings[0]]);
+        self::assertStringContainsString('new RosannaState()', $sections[$headings[0]]);
+        self::assertStringContainsString('bootstrap', $sections[$headings[0]]);
+
+        foreach (['actions()->handle(', '$app->scope($request)', 'renderClientScript()', 'rosanna-state publish', 'setSnapshotSecret('] as $needle) {
+            self::assertStringContainsString($needle, $sections[$headings[1]]);
+        }
+
+        // 移行の 5 手順
+        foreach (['composer require polidog/rosanna-state', 'new RosannaState()', 'Polidog\Rosanna\State\\', 'State\component()', 'rosanna-state compile', 'State\Installer\\'] as $needle) {
+            self::assertStringContainsString($needle, $sections[$headings[2]]);
+        }
+
+        self::assertStringNotContainsString('vendor/bin/rosanna publish', $readme);
     }
 
     public function testQuickstartWorksWithoutAndWithJavaScript(): void
@@ -234,9 +266,9 @@ final class ReadmeExamplesTest extends TestCase
             'public/index.php' => self::block('psx-host'),
         ]);
 
-        $compile = self::execute([PHP_BINARY, dirname(__DIR__, 2) . '/bin/rosanna', 'compile', 'components'], $directory);
+        $compile = self::execute([PHP_BINARY, dirname(__DIR__, 2) . '/bin/rosanna-state', 'compile', 'components'], $directory);
         self::assertSame(0, $compile['code'], $compile['output']);
-        self::assertSame(0, self::execute([PHP_BINARY, dirname(__DIR__, 2) . '/bin/rosanna', 'compile', '--check', 'components'], $directory)['code']);
+        self::assertSame(0, self::execute([PHP_BINARY, dirname(__DIR__, 2) . '/bin/rosanna-state', 'compile', '--check', 'components'], $directory)['code']);
 
         $port = $this->serve($directory);
         $page = self::http($port, '/');
@@ -336,7 +368,7 @@ final class ReadmeExamplesTest extends TestCase
                 {
                     static $requests = 0;
                     if ($requests > 0) {
-                        echo Polidog\Rosanna\Runtime\ComponentState::current() === null && Polidog\Rosanna\Runtime\RenderContext::currentScope() === null ? "clean\n" : "dirty\n";
+                        echo Polidog\Rosanna\State\ComponentState::current() === null && Polidog\Rosanna\Runtime\RenderContext::currentScope() === null ? "clean\n" : "dirty\n";
                     }
                     $handler();
                     echo "\n";
@@ -361,13 +393,13 @@ final class ReadmeExamplesTest extends TestCase
             declare(strict_types=1);
 
             use Polidog\Rosanna\Html\H;
-            use Polidog\Rosanna\Http\Request;
-            use Polidog\Rosanna\Rosanna;
+            use Polidog\Rosanna\State\Http\Request;
+            use Polidog\Rosanna\State\RosannaState;
             use Polidog\Rosanna\Runtime\Element;
             use Polidog\Rosanna\Runtime\RenderContext;
 
-            use function Polidog\Rosanna\Runtime\fc;
-            use function Polidog\Rosanna\Runtime\useState;
+            use function Polidog\Rosanna\State\fc;
+            use function Polidog\Rosanna\State\useState;
 
             require __DIR__ . '/../vendor/autoload.php';
 
@@ -377,7 +409,7 @@ final class ReadmeExamplesTest extends TestCase
                 return H::button(onClick: fn() => $setCount($count + 1), children: "Count: {$count}");
             }, key: 'counter');
 
-            $app = new Rosanna();
+            $app = new RosannaState();
             $request = Request::fromGlobals();
             if ($request->path !== '/no-secret') {
                 $app->setSnapshotSecret((string) getenv('ROSANNA_SNAPSHOT_SECRET'));

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Component;
+namespace Polidog\Rosanna\State\Component;
 
-use Polidog\Rosanna\Storage\SnapshotPersist;
-use Polidog\Rosanna\Storage\StorageType;
+use Polidog\Rosanna\State\Storage\SnapshotPersist;
+use Polidog\Rosanna\State\Storage\StorageType;
 
 #[\Attribute(\Attribute::TARGET_CLASS)]
 final class Component

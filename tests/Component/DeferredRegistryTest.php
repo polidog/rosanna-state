@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Component;
+namespace Polidog\Rosanna\State\Tests\Component;
 
 use PHPUnit\Framework\TestCase;
-use Polidog\Rosanna\Component\DeferredRegistry;
+use Polidog\Rosanna\State\Component\DeferredRegistry;
 
 final class DeferredRegistryTest extends TestCase
 {

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Runtime;
+namespace Polidog\Rosanna\State;
 
-use Polidog\Rosanna\Component\Defer;
-use Polidog\Rosanna\Storage\SnapshotPersist;
-use Polidog\Rosanna\Storage\StorageType;
+use Polidog\Rosanna\State\Component\Defer;
+use Polidog\Rosanna\State\Storage\SnapshotPersist;
+use Polidog\Rosanna\State\Storage\StorageType;
 
 /**
  * 値は描画時に確定する。`$set($count + 1)` は「足す」ではなく「その値にする」。
@@ -109,4 +109,73 @@ function fc(
     ?SnapshotPersist $persist = null,
 ): FunctionComponent {
     return new FunctionComponent(\Closure::fromCallable($component), $key, $storageType, $defer, $persist);
+}
+
+/**
+ * fc() と違ってラッパーを出さず、保存先は Session になる (RT-6.7)。children に置くと展開される。
+ *
+ * @param array<string, mixed> $props
+ * @throws \InvalidArgumentException key が string でも int でもないとき
+ */
+function component(callable $component, array $props = []): FunctionComponentCall
+{
+    $key = $props['key'] ?? null;
+    unset($props['key']);
+    if ($key !== null && !is_string($key) && !is_int($key)) {
+        throw new \InvalidArgumentException('component(): the "key" prop must be a string or int, got ' . get_debug_type($key));
+    }
+
+    return new FunctionComponentCall(
+        $component instanceof \Closure ? $component : \Closure::fromCallable($component),
+        $props,
+        $key === null ? null : (string) $key,
+        getFunctionComponentName($component),
+    );
+}
+
+/**
+ * Action と Closure だけを受ける。is_callable() にすると、イベントの prop に流れた文字列が
+ * 関数名として実行されるので、文字列、配列、呼び出し可能オブジェクトは実行せずに拒否する (RT-2.6)。
+ *
+ * @internal
+ * @throws \InvalidArgumentException
+ */
+function resolveEventAction(string $event, mixed $value): ?Action
+{
+    if ($value instanceof Action) {
+        return $value;
+    }
+    if (!$value instanceof \Closure) {
+        throw new \InvalidArgumentException(sprintf('%s must be an Action or a Closure; got %s', $event, get_debug_type($value)));
+    }
+
+    // クロージャはイベントのときではなく描画中に動くので、渡せるイベントの値がない
+    if (new \ReflectionFunction($value)->getNumberOfRequiredParameters() > 0) {
+        throw new \InvalidArgumentException(sprintf(
+            '%s closures take no arguments: they run during rendering to build the Action. '
+            . 'To receive what the user typed, use useFormAction().',
+            $event,
+        ));
+    }
+
+    $action = $value();
+
+    return $action instanceof Action ? $action : null;
+}
+
+/** RT-8.1 */
+function getFunctionComponentName(callable $component): string
+{
+    if ($component instanceof \Closure) {
+        $reflection = new \ReflectionFunction($component);
+        $file = $reflection->getFileName();
+        $line = $reflection->getStartLine();
+
+        return 'FC@' . basename($file === false ? 'unknown' : $file) . ':' . ($line === false ? 0 : $line);
+    }
+    if (is_array($component)) {
+        return (is_object($component[0]) ? $component[0]::class : $component[0]) . '::' . $component[1];
+    }
+
+    return is_string($component) ? $component : 'AnonymousFC';
 }

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Runtime;
+namespace Polidog\Rosanna\State\Tests\Runtime;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -10,18 +10,17 @@ use PHPUnit\Framework\TestCase;
 use function Polidog\Rosanna\Html\createElement;
 
 use Polidog\Rosanna\Html\H;
-use Polidog\Rosanna\Runtime\Action;
 use Polidog\Rosanna\Runtime\Element;
-
-use function Polidog\Rosanna\Runtime\fc;
-
 use Polidog\Rosanna\Runtime\RequestLifecycle;
+use Polidog\Rosanna\State\Action;
 
-use function Polidog\Rosanna\Runtime\useFormAction;
-use function Polidog\Rosanna\Runtime\useState;
+use function Polidog\Rosanna\State\fc;
 
-use Polidog\Rosanna\Storage\StorageType;
-use Polidog\Rosanna\Tests\Runtime\Support\RendersInScope;
+use Polidog\Rosanna\State\Storage\StorageType;
+use Polidog\Rosanna\State\Tests\Runtime\Support\RendersInScope;
+
+use function Polidog\Rosanna\State\useFormAction;
+use function Polidog\Rosanna\State\useState;
 
 /** RT-4.1〜4.3 属性名は大文字小文字を区別しない。RT-4.5 wrapper の form の中に共有フォームを入れない */
 final class ActionBindingCaseTest extends TestCase

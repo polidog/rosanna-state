@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Storage;
+namespace Polidog\Rosanna\State\Storage;
 
 /**
  * $_SESSION に置くストレージ。読み取りはセッションを開始しない (ST-2)。

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Component;
+namespace Polidog\Rosanna\State\Component;
 
 use Polidog\Rosanna\Html\H;
 use Polidog\Rosanna\Runtime\Element;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Psx\Support;
+namespace Polidog\Rosanna\State\Tests\Psx\Support;
 
 final class TemporaryDirectory
 {

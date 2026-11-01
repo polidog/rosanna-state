@@ -10,7 +10,7 @@ Run from the repository root. PHP 8.5+ is required.
 
 ```bash
 composer install
-bin/rosanna compile examples/10-psx/components --cache=examples/10-psx/var/cache/psx   # only needed for 10-psx
+bin/rosanna-state compile examples/10-psx/components --cache=examples/10-psx/var/cache/psx   # only needed for 10-psx
 ROSANNA_SNAPSHOT_SECRET=$(php -r 'echo bin2hex(random_bytes(32));') php -S localhost:8000 examples/router.php
 ```
 
@@ -31,13 +31,13 @@ Read in order to go from the basics to embedding in a host. The last column says
 | [07-live-search](07-live-search/index.php) | Filtering as you type while keeping focus | `onInput`, `StorageType::Snapshot` | Works through the button |
 | [08-guard](08-guard/index.php) | A host protecting a page, next to the host's own form | `pagePath`, `csrf()` | Works |
 | [09-defer](09-defer/index.php) | A shared page body with per-visitor fragments | `Defer`, `H::defer`, `handleDeferred` | Shows only the fallback |
-| [10-psx](10-psx/) | Tags and nested components | `.psx`, `rosanna compile`, `loadComponentManifest` | Works |
+| [10-psx](10-psx/) | Tags and nested components | `.psx`, `rosanna-state compile`, `loadComponentManifest` | Works |
 
 ## Notes
 
 - **The secret comes from the environment.** The command above picks a new one on every start, so actions on pages left open will fail. Open them again.
 - **The samples share a session** because they share an origin. Each one uses its own `fc()` keys so their state does not mix.
-- **[router.php](router.php) only exists to list the samples.** In your application a host router or one PHP file per page does this job, and `vendor/bin/rosanna publish` puts `rosanna.js` in `public/`.
+- **[router.php](router.php) only exists to list the samples.** In your application a host router or one PHP file per page does this job, and `vendor/bin/rosanna-state publish` puts `rosanna.js` in `public/`.
 - **Signing in to 08-guard checks no password.** It only shows the order of the checks.
 - **No hook appends a form value to an array.** `useFormAction` overwrites a hook with the field's value. For a to-do style screen where typed text joins a list, write to your database from an ordinary host form and read it back while rendering. Per-row operations can follow 03-cart.
 

@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Protocol;
+namespace Polidog\Rosanna\State\Protocol;
 
-use Polidog\Rosanna\Http\Request;
-use Polidog\Rosanna\Runtime\Action;
-use Polidog\Rosanna\Runtime\ComponentState;
 use Polidog\Rosanna\Runtime\RenderScope;
-use Polidog\Rosanna\Snapshot\SnapshotBehavior;
-use Polidog\Rosanna\Storage\StorageType;
+use Polidog\Rosanna\State\Action;
+use Polidog\Rosanna\State\ComponentState;
+use Polidog\Rosanna\State\Http\Request;
+use Polidog\Rosanna\State\Snapshot\SnapshotBehavior;
+use Polidog\Rosanna\State\Storage\StorageType;
 
 /**
  * 1 回の handle() の応答の判断の入力。ハンドラーのインスタンスに残さないために値で渡す (RQ-3)。

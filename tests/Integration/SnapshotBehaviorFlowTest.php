@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Integration;
+namespace Polidog\Rosanna\State\Tests\Integration;
 
-use Polidog\Rosanna\Tests\Protocol\Support\ActionRequests;
+use Polidog\Rosanna\State\Tests\Protocol\Support\ActionRequests;
 
 /**
  * 2.5 節の置き場所を実際の HTTP で確かめる (SN-23、SN-24、SN-26〜SN-28)。

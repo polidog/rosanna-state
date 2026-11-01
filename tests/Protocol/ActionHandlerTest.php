@@ -2,36 +2,36 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Protocol;
+namespace Polidog\Rosanna\State\Tests\Protocol;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
-use Polidog\Rosanna\Component\Defer;
 use Polidog\Rosanna\Html\H;
-use Polidog\Rosanna\Protocol\ActionEnvelope;
-use Polidog\Rosanna\Protocol\RedirectTarget;
-use Polidog\Rosanna\Rosanna;
-use Polidog\Rosanna\Runtime\ComponentState;
 use Polidog\Rosanna\Runtime\Element;
-
-use function Polidog\Rosanna\Runtime\fc;
-
-use Polidog\Rosanna\Runtime\FunctionComponent;
 use Polidog\Rosanna\Runtime\RenderContext;
 use Polidog\Rosanna\Runtime\RequestLifecycle;
-use Polidog\Rosanna\Runtime\StateDiff;
+use Polidog\Rosanna\State\Component\Defer;
+use Polidog\Rosanna\State\ComponentState;
 
-use function Polidog\Rosanna\Runtime\useFormAction;
-use function Polidog\Rosanna\Runtime\useState;
+use function Polidog\Rosanna\State\fc;
 
-use Polidog\Rosanna\Snapshot\SnapshotBehavior;
-use Polidog\Rosanna\Storage\StorageType;
-use Polidog\Rosanna\Tests\Protocol\Fixtures\DeferredPanel;
-use Polidog\Rosanna\Tests\Protocol\Fixtures\MemoryCounter;
-use Polidog\Rosanna\Tests\Protocol\Fixtures\SharedNameA;
-use Polidog\Rosanna\Tests\Protocol\Fixtures\SharedNameB;
-use Polidog\Rosanna\Tests\Protocol\Fixtures\SnapshotCounter;
-use Polidog\Rosanna\Tests\Protocol\Support\ActionRequests;
+use Polidog\Rosanna\State\FunctionComponent;
+use Polidog\Rosanna\State\Protocol\ActionEnvelope;
+use Polidog\Rosanna\State\Protocol\RedirectTarget;
+use Polidog\Rosanna\State\RenderPass;
+use Polidog\Rosanna\State\RosannaState;
+use Polidog\Rosanna\State\Snapshot\SnapshotBehavior;
+use Polidog\Rosanna\State\StateDiff;
+use Polidog\Rosanna\State\Storage\StorageType;
+use Polidog\Rosanna\State\Tests\Protocol\Fixtures\DeferredPanel;
+use Polidog\Rosanna\State\Tests\Protocol\Fixtures\MemoryCounter;
+use Polidog\Rosanna\State\Tests\Protocol\Fixtures\SharedNameA;
+use Polidog\Rosanna\State\Tests\Protocol\Fixtures\SharedNameB;
+use Polidog\Rosanna\State\Tests\Protocol\Fixtures\SnapshotCounter;
+use Polidog\Rosanna\State\Tests\Protocol\Support\ActionRequests;
+
+use function Polidog\Rosanna\State\useFormAction;
+use function Polidog\Rosanna\State\useState;
 
 /**
  * 02 の 7 節。セッションを使わない Memory と Snapshot で、判定の順番と応答の判断の表を確かめる。
@@ -55,9 +55,9 @@ final class ActionHandlerTest extends TestCase
         self::assertSame(PHP_SESSION_NONE, session_status(), 'A test in this process must not start a session');
     }
 
-    private static function app(): Rosanna
+    private static function app(): RosannaState
     {
-        return new Rosanna()->setSnapshotSecret(self::SECRET);
+        return new RosannaState()->setSnapshotSecret(self::SECRET);
     }
 
     private static function counter(StorageType $storage, string $key = 'a'): FunctionComponent
@@ -69,7 +69,7 @@ final class ActionHandlerTest extends TestCase
         }, key: $key, storageType: $storage);
     }
 
-    private static function rendered(Rosanna $app, string $class, string $uri = '/page'): string
+    private static function rendered(RosannaState $app, string $class, string $uri = '/page'): string
     {
         return RenderContext::run($app->scope(self::get($uri)), static fn(): string => $app->render($class));
     }
@@ -311,7 +311,7 @@ final class ActionHandlerTest extends TestCase
         self::assertSame('Invalid action signature', $rejected->body);
 
         // 書き換えた後のパスを渡す host (Relayer のロケール) ではそのパスで検証する
-        $rewritten = new \Polidog\Rosanna\Http\Request('POST', '/ja/guarded', '/guarded', '', [], $fields, [], ['host' => 'app.test', 'origin' => 'http://app.test']);
+        $rewritten = new \Polidog\Rosanna\State\Http\Request('POST', '/ja/guarded', '/guarded', '', [], $fields, [], ['host' => 'app.test', 'origin' => 'http://app.test']);
         $accepted = $app->actions()->handle($rewritten);
         self::assertNotNull($accepted);
         self::assertSame(303, $accepted->status);
@@ -320,7 +320,7 @@ final class ActionHandlerTest extends TestCase
     // --- 段 6: スナップショット ---
 
     /** @return array{string, string, array<string, mixed>} HTML、ID、ボタンの送信 */
-    private static function snapshotPage(Rosanna $app): array
+    private static function snapshotPage(RosannaState $app): array
     {
         $html = self::page($app, static fn() => self::counter(StorageType::Snapshot)());
         $id = self::idOf($html);
@@ -371,7 +371,7 @@ final class ActionHandlerTest extends TestCase
         self::assertSame('Invalid snapshot', $response->body);
     }
 
-    private static function memorySnapshotField(Rosanna $app, string $key): string
+    private static function memorySnapshotField(RosannaState $app, string $key): string
     {
         $html = self::page($app, static fn() => self::counter(StorageType::Snapshot, $key)());
         $snapshot = self::wrapperAttribute($html, 'data-rosanna-snapshot', self::idOf($html));
@@ -418,7 +418,7 @@ final class ActionHandlerTest extends TestCase
         self::assertNotNull($serializer);
         $carried = [];
         for ($i = 0; $i < 257; $i++) {
-            $carried[] = $serializer->serialize(new \Polidog\Rosanna\Runtime\Snapshot('Row', (string) $i, ['v' . $i]));
+            $carried[] = $serializer->serialize(new \Polidog\Rosanna\State\Snapshot\Snapshot('Row', (string) $i, ['v' . $i]));
         }
         [, $id, $fields] = self::snapshotPage($app);
         $fields['_rosanna_snapshots'] = $carried;
@@ -439,7 +439,7 @@ final class ActionHandlerTest extends TestCase
         $serializer = $app->snapshotSerializer();
         self::assertNotNull($serializer);
         [, , $fields] = self::snapshotPage($app);
-        $fields['_rosanna_snapshots'] = ['Row#7' => $serializer->serialize(new \Polidog\Rosanna\Runtime\Snapshot('Row', '1', ['one']))];
+        $fields['_rosanna_snapshots'] = ['Row#7' => $serializer->serialize(new \Polidog\Rosanna\State\Snapshot\Snapshot('Row', '1', ['one']))];
 
         $app->actions()->handle(self::post($fields));
 
@@ -454,7 +454,7 @@ final class ActionHandlerTest extends TestCase
         $serializer = $app->snapshotSerializer();
         self::assertNotNull($serializer);
         [$name, $key] = explode('#', $id, 2);
-        $fields['_rosanna_snapshots'] = [$serializer->serialize(new \Polidog\Rosanna\Runtime\Snapshot($name, $key, [41], version: 9))];
+        $fields['_rosanna_snapshots'] = [$serializer->serialize(new \Polidog\Rosanna\State\Snapshot\Snapshot($name, $key, [41], version: 9))];
 
         $response = $app->actions()->handle(self::post($fields));
 
@@ -769,7 +769,7 @@ final class ActionHandlerTest extends TestCase
         RequestLifecycle::reset();
 
         // パスが前に進んでいても、replay は新しいパスで揃う
-        RenderContext::nextInstanceId('junk');
+        RenderPass::nextInstanceId('junk');
         $response = $app->actions()->handle(self::post($fields, partial: true), replay: static fn(): Element => $page());
 
         self::assertNotNull($response);
@@ -823,7 +823,7 @@ final class ActionHandlerTest extends TestCase
         self::assertStringNotContainsString('data-rosanna-defer-url', $response->body);
 
         // 出したフォームはページの署名なので、defer を消しても通る
-        $next = new Rosanna()->setSnapshotSecret(self::SECRET);
+        $next = new RosannaState()->setSnapshotSecret(self::SECRET);
         RequestLifecycle::reset();
         $again = $next->actions()->handle(self::post(self::press($response->body)));
         self::assertNotNull($again);
@@ -879,7 +879,7 @@ final class ActionHandlerTest extends TestCase
     }
 
     /** @return array<string, mixed> */
-    private static function pressInDefer(Rosanna $app, string $uri): array
+    private static function pressInDefer(RosannaState $app, string $uri): array
     {
         $endpoint = $app->handleDeferred(self::get($uri));
         self::assertNotNull($endpoint);
@@ -1243,7 +1243,7 @@ final class ActionHandlerTest extends TestCase
         $serializer = $app->snapshotSerializer();
         self::assertNotNull($serializer);
         $fields = self::press($html, 0);
-        $fields['_rosanna_snapshots'] = [$serializer->serialize(new \Polidog\Rosanna\Runtime\Snapshot('Hidden', 'row', [1]))];
+        $fields['_rosanna_snapshots'] = [$serializer->serialize(new \Polidog\Rosanna\State\Snapshot\Snapshot('Hidden', 'row', [1]))];
         RequestLifecycle::reset();
 
         $response = $app->actions()->handle(self::post($fields, partial: true), replay: static fn(): Element => $page());
@@ -1302,7 +1302,7 @@ final class ActionHandlerTest extends TestCase
         RequestLifecycle::reset();
         $serializer = $app->snapshotSerializer();
         self::assertNotNull($serializer);
-        $planted = htmlspecialchars($serializer->serialize(new \Polidog\Rosanna\Runtime\Snapshot('Planted', '0', ['x'])), ENT_QUOTES);
+        $planted = htmlspecialchars($serializer->serialize(new \Polidog\Rosanna\State\Snapshot\Snapshot('Planted', '0', ['x'])), ENT_QUOTES);
         $unverified = htmlspecialchars('{"memo":{"name":"Bad","key":"0","version":0},"state":[],"effectDeps":[],"checksum":"bad"}', ENT_QUOTES);
         $extras = '<script>var a = \'<div data-rosanna="Planted#0" data-rosanna-snapshot="' . $planted . '"></div><form data-rosanna-form>\';</script>'
             . '<style>/* <div data-rosanna="P#1" data-rosanna-snapshot="' . $planted . '"> */</style>'
@@ -1606,7 +1606,7 @@ final class ActionHandlerTest extends TestCase
         self::assertNotNull($serializer);
         // 別のタブが同じ版から分岐した状態
         [$name, $key] = explode('#', $id, 2);
-        $fields['_rosanna_snapshot'] = $serializer->serialize(new \Polidog\Rosanna\Runtime\Snapshot($name, $key, [self::rows(true)], version: 1));
+        $fields['_rosanna_snapshot'] = $serializer->serialize(new \Polidog\Rosanna\State\Snapshot\Snapshot($name, $key, [self::rows(true)], version: 1));
         RequestLifecycle::reset();
 
         $response = $app->actions()->handle(self::post($fields, partial: true), replay: static fn(): Element => $component());
@@ -1695,7 +1695,7 @@ final class ActionHandlerTest extends TestCase
         $serializer = $app->snapshotSerializer();
         self::assertNotNull($serializer);
         [$name, $key] = explode('#', self::idOf($html), 2);
-        $fields['_rosanna_snapshot'] = $serializer->serialize(new \Polidog\Rosanna\Runtime\Snapshot($name, $key, [10], version: 5));
+        $fields['_rosanna_snapshot'] = $serializer->serialize(new \Polidog\Rosanna\State\Snapshot\Snapshot($name, $key, [10], version: 5));
         RequestLifecycle::reset();
 
         $response = $app->actions()->handle(self::post($fields, partial: true), replay: static fn(): Element => $component());
@@ -1716,7 +1716,7 @@ final class ActionHandlerTest extends TestCase
         self::assertNotNull($serializer);
         $fields = self::press(self::rendered($app, SnapshotCounter::class));
         RequestLifecycle::reset();
-        $otherUrl = rawurlencode($serializer->serialize(new \Polidog\Rosanna\Runtime\Snapshot('Other', '0', [1])));
+        $otherUrl = rawurlencode($serializer->serialize(new \Polidog\Rosanna\State\Snapshot\Snapshot('Other', '0', [1])));
 
         $response = $app->actions()->handle(self::post($fields, uri: '/page?_rosanna_snapshot=' . $otherUrl), behavior: SnapshotBehavior::Persistent);
 
@@ -1777,7 +1777,7 @@ final class ActionHandlerTest extends TestCase
         $fields = self::press(self::page($app, static fn() => self::counter(StorageType::Memory)()));
         RequestLifecycle::reset();
 
-        $response = $app->actions()->handle(new \Polidog\Rosanna\Http\Request(
+        $response = $app->actions()->handle(new \Polidog\Rosanna\State\Http\Request(
             'POST',
             '//evil.example/page',
             '/page',
@@ -1831,8 +1831,8 @@ final class ActionHandlerTest extends TestCase
 
     public function testHD15ThereIsNoPublicRedirectMethod(): void
     {
-        self::assertFalse(method_exists(Rosanna::class, 'redirect'));
-        self::assertFalse(new \ReflectionClass(\Polidog\Rosanna\Protocol\ActionHandler::class)->hasMethod('redirectTo'));
+        self::assertFalse(method_exists(RosannaState::class, 'redirect'));
+        self::assertFalse(new \ReflectionClass(\Polidog\Rosanna\State\Protocol\ActionHandler::class)->hasMethod('redirectTo'));
     }
 
     public function testHD4OneRequestProcessesOneAction(): void
@@ -1922,7 +1922,7 @@ final class ActionHandlerTest extends TestCase
 
         $app->actions()->handle(self::post($fields, partial: true), replay: static fn(): Element => $component());
 
-        $collected = new \ReflectionProperty(Rosanna::class, 'collected');
+        $collected = new \ReflectionProperty(RosannaState::class, 'collected');
         self::assertNull($collected->getValue($app));
         self::assertNull(RenderContext::currentScope());
     }

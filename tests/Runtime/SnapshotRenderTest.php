@@ -2,37 +2,34 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Runtime;
+namespace Polidog\Rosanna\State\Tests\Runtime;
 
 use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
-
-use function Polidog\Rosanna\Html\getFunctionComponentName;
-
 use Polidog\Rosanna\Html\H;
-use Polidog\Rosanna\Http\Request;
-use Polidog\Rosanna\Protocol\ActionSigner;
-use Polidog\Rosanna\Protocol\CsrfGuard;
-use Polidog\Rosanna\Runtime\Action;
-use Polidog\Rosanna\Runtime\ComponentState;
 use Polidog\Rosanna\Runtime\Element;
-
-use function Polidog\Rosanna\Runtime\fc;
-
 use Polidog\Rosanna\Runtime\PsxRenderer;
 use Polidog\Rosanna\Runtime\RenderContext;
-use Polidog\Rosanna\Runtime\RendererFactory;
 use Polidog\Rosanna\Runtime\RenderScope;
 use Polidog\Rosanna\Runtime\RequestLifecycle;
-use Polidog\Rosanna\Runtime\Snapshot;
-use Polidog\Rosanna\Runtime\StateDiff;
+use Polidog\Rosanna\State\Action;
+use Polidog\Rosanna\State\ComponentState;
 
-use function Polidog\Rosanna\Runtime\useState;
+use function Polidog\Rosanna\State\fc;
+use function Polidog\Rosanna\State\getFunctionComponentName;
 
-use Polidog\Rosanna\Snapshot\SnapshotSerializer;
-use Polidog\Rosanna\Storage\StorageType;
-use Polidog\Rosanna\Tests\Runtime\Support\RendersInScope;
-use Polidog\Rosanna\Tests\Storage\SessionTestHelper;
+use Polidog\Rosanna\State\Http\Request;
+use Polidog\Rosanna\State\Protocol\ActionSigner;
+use Polidog\Rosanna\State\Protocol\CsrfGuard;
+use Polidog\Rosanna\State\RendererFactory;
+use Polidog\Rosanna\State\Snapshot\Snapshot;
+use Polidog\Rosanna\State\Snapshot\SnapshotSerializer;
+use Polidog\Rosanna\State\StateDiff;
+use Polidog\Rosanna\State\Storage\StorageType;
+use Polidog\Rosanna\State\Tests\Runtime\Support\RendersInScope;
+use Polidog\Rosanna\State\Tests\Storage\SessionTestHelper;
+
+use function Polidog\Rosanna\State\useState;
 
 /** Renderer が担う SN-10〜12、AC-13、AC-15、AC-18、AC-20、VR-1、VR-7 */
 final class SnapshotRenderTest extends TestCase
@@ -77,13 +74,13 @@ final class SnapshotRenderTest extends TestCase
         ComponentState::fromSnapshot(new Snapshot('C', '0'));
         $this->expectException(\LogicException::class);
         $this->expectExceptionMessage('secret');
-        $scope->renderers->create('C#0')->renderElement(H::button(onClick: Action::setState(0, 1, 'C#0'), children: 'x'));
+        $scope->state->renderers->create('C#0')->renderElement(H::button(onClick: Action::setState(0, 1, 'C#0'), children: 'x'));
     }
 
     public function testSN10RendererRenderWithoutASecretIsLogicException(): void
     {
         $this->expectException(\LogicException::class);
-        self::scope(null)->renderers->create('C#0', StorageType::Snapshot)->render(static fn() => H::div());
+        self::scope(null)->state->renderers->create('C#0', StorageType::Snapshot)->render(static fn() => H::div());
     }
 
     public function testSN11WrapperAndFormBothCarryTheSnapshotOnce(): void
@@ -115,7 +112,7 @@ final class SnapshotRenderTest extends TestCase
         $html = RenderContext::run($scope, static function () use ($scope) {
             $wrapper = self::list(StorageType::Snapshot);
 
-            return $scope->renderers->create($wrapper->props['data-rosanna'], StorageType::Snapshot)->renderPartial(static fn() => $wrapper->children);
+            return $scope->state->renderers->create($wrapper->props['data-rosanna'], StorageType::Snapshot)->renderPartial(static fn() => $wrapper->children);
         });
 
         self::assertStringNotContainsString('data-rosanna=', $html, 'only the inside of the wrapper');
@@ -125,14 +122,14 @@ final class SnapshotRenderTest extends TestCase
     public function testSN12PartialOfOtherStoragesHasNoUpdate(): void
     {
         $scope = self::scope();
-        $html = $scope->renderers->create('C#0', StorageType::Memory)->renderPartial(static fn() => H::p());
+        $html = $scope->state->renderers->create('C#0', StorageType::Memory)->renderPartial(static fn() => H::p());
         self::assertSame('<p></p>', $html);
     }
 
     public function testRendererRenderMatchesFcForSnapshot(): void
     {
         $scope = self::scope();
-        $html = $scope->renderers->create('C#0', StorageType::Snapshot)->render(static fn() => H::p());
+        $html = $scope->state->renderers->create('C#0', StorageType::Snapshot)->render(static fn() => H::p());
         $wrapper = self::dom($html)->querySelector('[data-rosanna="C#0"]');
         self::assertSame('C#0', new SnapshotSerializer(self::SECRET)->deserialize((string) $wrapper?->getAttribute('data-rosanna-snapshot'))->getInstanceId());
         self::assertNotSame('', (string) $wrapper?->getAttribute('data-rosanna-restore-sig'), 'VR-7');
@@ -306,7 +303,8 @@ final class SnapshotRenderTest extends TestCase
         session_save_path('/nonexistent/rosanna-no-session');
         $signer = new ActionSigner()->forRequest(new Request('GET', '/page', '/page', ''));
         $serializer = new SnapshotSerializer(self::SECRET);
-        $scope = new RenderScope(new RendererFactory($serializer, $signer, new CsrfGuard()), new PsxRenderer(), $serializer, $signer, 'page:/page');
+        $psx = new PsxRenderer();
+        $scope = new RenderScope($psx, new \Polidog\Rosanna\State\StateScope(new RendererFactory($serializer, $signer, new CsrfGuard()), $psx, $serializer, $signer, 'page:/page'));
 
         $document = self::dom(self::html(static fn() => fc(static function () {
             [, $set] = useState(0);

@@ -2,12 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Protocol\Support;
+namespace Polidog\Rosanna\State\Tests\Protocol\Support;
 
-use Polidog\Rosanna\Http\Request;
-use Polidog\Rosanna\Protocol\ActionEnvelope;
-use Polidog\Rosanna\Rosanna;
 use Polidog\Rosanna\Runtime\RenderContext;
+use Polidog\Rosanna\State\Http\Request;
+use Polidog\Rosanna\State\Protocol\ActionEnvelope;
+use Polidog\Rosanna\State\RenderPass;
+use Polidog\Rosanna\State\RosannaState;
 
 /**
  * 描画した HTML からブラウザと同じ送信の内容を作る。
@@ -65,10 +66,10 @@ trait ActionRequests
         return new Request('POST', $uri, $path, $query, $params, $fields, [], $headers);
     }
 
-    private static function page(Rosanna $app, callable $build, string $uri = '/page'): string
+    private static function page(RosannaState $app, callable $build, string $uri = '/page'): string
     {
         return RenderContext::run($app->scope(self::get($uri)), static function () use ($app, $build): string {
-            RenderContext::beginRender();
+            RenderPass::beginRender();
             $element = $build();
 
             return is_string($element) ? $element : $app->renderElement($element);
@@ -132,7 +133,7 @@ trait ActionRequests
      * @param array<string, mixed>|string $action
      * @return array<string, mixed>
      */
-    private static function signed(Rosanna $app, string $instanceId, array|string $action, string $path = '/page'): array
+    private static function signed(RosannaState $app, string $instanceId, array|string $action, string $path = '/page'): array
     {
         $json = is_string($action) ? $action : (string) json_encode($action);
 

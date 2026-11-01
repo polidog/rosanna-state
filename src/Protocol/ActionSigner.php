@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Protocol;
+namespace Polidog\Rosanna\State\Protocol;
 
-use Polidog\Rosanna\Http\Request;
-use Polidog\Rosanna\Runtime\RenderContext;
-use Polidog\Rosanna\Snapshot\SnapshotSerializer;
-use Polidog\Rosanna\Storage\NativeSession;
+use Polidog\Rosanna\State\Http\Request;
+use Polidog\Rosanna\State\Snapshot\SnapshotSerializer;
+use Polidog\Rosanna\State\StateScope;
+use Polidog\Rosanna\State\Storage\NativeSession;
 
 /**
  * action をサーバーが描画したものだけに限る署名 (AC、SG)。
  *
  * リクエストの情報は持たない。`forRequest()` が返す別のインスタンスに束縛するので、Rosanna 本体が持つものには残らない (RQ-3)。
- * 束縛がなければ現在の RenderScope の signingScope を使う (SG-8)。グローバルの REQUEST_URI は読まない。
+ * 束縛がなければ現在の StateScope の signingScope を使う (SG-8)。グローバルの REQUEST_URI は読まない。
  */
 final class ActionSigner
 {
@@ -54,7 +54,7 @@ final class ActionSigner
         return $signer;
     }
 
-    /** `RenderScope::$signingScope` に入れる値。束縛がなければ null */
+    /** `StateScope::$signingScope` に入れる値。束縛がなければ null */
     public function signingScope(): ?string
     {
         return $this->boundScope;
@@ -129,7 +129,7 @@ final class ActionSigner
 
     private function ambientScope(): ?string
     {
-        return $this->boundScope ?? RenderContext::currentScope()?->signingScope;
+        return $this->boundScope ?? StateScope::current()?->signingScope;
     }
 
     private function sessionKey(bool $create): ?string

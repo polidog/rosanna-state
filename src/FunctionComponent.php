@@ -2,19 +2,18 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Runtime;
+namespace Polidog\Rosanna\State;
 
-use Polidog\Rosanna\Component\Defer;
-
-use function Polidog\Rosanna\Html\getFunctionComponentName;
-
-use Polidog\Rosanna\Storage\SnapshotPersist;
-use Polidog\Rosanna\Storage\StorageType;
+use Polidog\Rosanna\Runtime\AcceptsArgumentResolver;
+use Polidog\Rosanna\Runtime\Element;
+use Polidog\Rosanna\State\Component\Defer;
+use Polidog\Rosanna\State\Storage\SnapshotPersist;
+use Polidog\Rosanna\State\Storage\StorageType;
 
 /**
  * `fc()` が返す、インスタンスの state を持つコンポーネント。
  */
-final class FunctionComponent
+final class FunctionComponent implements AcceptsArgumentResolver
 {
     /** @var (\Closure(array<string, mixed>): list<mixed>)|null */
     private ?\Closure $argumentResolver = null;
@@ -53,14 +52,14 @@ final class FunctionComponent
      */
     public function __invoke(array $props = []): Element
     {
-        if ($this->defer !== null && RenderContext::currentScope()?->isDeferredEndpointTarget($this) !== true) {
+        if ($this->defer !== null && StateScope::current()?->isDeferredEndpointTarget($this) !== true) {
             return $this->defer->buildPlaceholder($props);
         }
 
         $key = $this->instanceKey($props['key'] ?? null);
         unset($props['key']);
 
-        $instanceId = RenderContext::beginComponent(getFunctionComponentName($this->inner), $key);
+        $instanceId = RenderPass::beginComponent(getFunctionComponentName($this->inner), $key);
         $parentState = ComponentState::current();
 
         try {
@@ -72,7 +71,7 @@ final class FunctionComponent
 
             return new Element('div', ComponentWrapper::propsInScope($state, $this->persist), [$result]);
         } finally {
-            RenderContext::endComponent();
+            RenderPass::endComponent();
             ComponentState::setCurrent($parentState);
         }
     }

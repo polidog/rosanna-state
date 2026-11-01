@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Storage;
+namespace Polidog\Rosanna\State\Tests\Storage;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
-use Polidog\Rosanna\Runtime\Snapshot;
-use Polidog\Rosanna\Storage\MemoryStorage;
-use Polidog\Rosanna\Storage\SessionStorage;
-use Polidog\Rosanna\Storage\SnapshotStorage;
+use Polidog\Rosanna\State\Snapshot\Snapshot;
+use Polidog\Rosanna\State\Storage\MemoryStorage;
+use Polidog\Rosanna\State\Storage\SessionStorage;
+use Polidog\Rosanna\State\Storage\SnapshotStorage;
 
 final class StorageTest extends TestCase
 {

@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-use Polidog\Rosanna\Component\BaseComponent;
-use Polidog\Rosanna\Component\Component;
-use Polidog\Rosanna\Component\Defer;
 use Polidog\Rosanna\Html\H;
-use Polidog\Rosanna\Http\Request;
-use Polidog\Rosanna\Rosanna;
 use Polidog\Rosanna\Runtime\Element;
-
-use function Polidog\Rosanna\Runtime\fc;
-
 use Polidog\Rosanna\Runtime\RenderContext;
+use Polidog\Rosanna\State\Component\BaseComponent;
+use Polidog\Rosanna\State\Component\Component;
+use Polidog\Rosanna\State\Component\Defer;
 
-use function Polidog\Rosanna\Runtime\useState;
+use function Polidog\Rosanna\State\fc;
+
+use Polidog\Rosanna\State\Http\Request;
+use Polidog\Rosanna\State\RosannaState;
+
+use function Polidog\Rosanna\State\useState;
 
 require_once __DIR__ . '/../layout.php';
 
@@ -41,7 +41,7 @@ $Likes = fc(function (array $props): Element {
     ]);
 }, key: 'example-likes', defer: new Defer(name: 'example-likes', cacheControl: 'private, no-store'));
 
-$app = new Rosanna();
+$app = new RosannaState();
 $app->setSnapshotSecret((string) getenv('ROSANNA_SNAPSHOT_SECRET'));
 $app->register(ExampleAnnouncement::class);
 $app->registerComponent('App\\ExampleLikes', $Likes);

@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Runtime;
+namespace Polidog\Rosanna\State\Snapshot;
+
+use Polidog\Rosanna\State\Action;
 
 final readonly class Snapshot
 {

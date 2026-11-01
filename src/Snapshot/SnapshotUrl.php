@@ -2,10 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Snapshot;
+namespace Polidog\Rosanna\State\Snapshot;
 
-use Polidog\Rosanna\Http\Request;
-use Polidog\Rosanna\Runtime\Snapshot;
+use Polidog\Rosanna\State\Http\Request;
 
 final class SnapshotUrl
 {

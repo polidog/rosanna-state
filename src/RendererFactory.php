@@ -2,24 +2,27 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Runtime;
+namespace Polidog\Rosanna\State;
 
-use Polidog\Rosanna\Protocol\ActionSigner;
-use Polidog\Rosanna\Protocol\CsrfGuard;
-use Polidog\Rosanna\Snapshot\SnapshotSerializer;
-use Polidog\Rosanna\Storage\SnapshotPersist;
-use Polidog\Rosanna\Storage\StorageType;
+use Polidog\Rosanna\Runtime\Renderer;
+use Polidog\Rosanna\State\Protocol\ActionSigner;
+use Polidog\Rosanna\State\Protocol\CsrfGuard;
+use Polidog\Rosanna\State\Snapshot\SnapshotSerializer;
+use Polidog\Rosanna\State\Storage\SnapshotPersist;
+use Polidog\Rosanna\State\Storage\StorageType;
 
 /**
- * serializer、defer の prefix、CSRF トークン、署名を必ず揃えて Renderer を作る (RT-9.5)。
+ * serializer、defer の prefix、CSRF トークン、署名を必ず揃えて ComponentRenderer を作る (RT-9.5)。
  */
 final class RendererFactory
 {
+    public const DEFAULT_DEFER_PREFIX = '/_defer';
+
     public function __construct(
         private readonly ?SnapshotSerializer $snapshotSerializer,
         private readonly ActionSigner $signer,
         private readonly CsrfGuard $csrf,
-        private readonly string $deferPrefix = Renderer::DEFAULT_DEFER_PREFIX,
+        private readonly string $deferPrefix = self::DEFAULT_DEFER_PREFIX,
     ) {}
 
     /**
@@ -33,7 +36,20 @@ final class RendererFactory
         ?SnapshotPersist $persist = null,
         ?string $deferQuery = null,
         ?string $deferName = null,
-    ): Renderer {
-        return new Renderer($rootId, $storage, $persist, $deferQuery, $deferName, $this->snapshotSerializer, $this->signer, $this->csrf, $this->deferPrefix);
+    ): ComponentRenderer {
+        return new ComponentRenderer(
+            $rootId,
+            $storage,
+            $persist,
+            $this->snapshotSerializer,
+            $this->signer,
+            new Renderer($this->extension($rootId, $deferQuery, $deferName)),
+        );
+    }
+
+    /** `Renderer` に差し込む拡張。描画ごとの可変状態を持つので描画ごとに作る */
+    public function extension(string $rootId, ?string $deferQuery = null, ?string $deferName = null): ActionFormExtension
+    {
+        return new ActionFormExtension($rootId, $deferQuery, $deferName, $this->snapshotSerializer, $this->signer, $this->csrf, $this->deferPrefix);
     }
 }

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Protocol;
+namespace Polidog\Rosanna\State\Protocol;
 
-use Polidog\Rosanna\Runtime\Snapshot;
-use Polidog\Rosanna\Snapshot\SnapshotSerializer;
-use Polidog\Rosanna\Snapshot\SnapshotVerificationException;
+use Polidog\Rosanna\State\Snapshot\Snapshot;
+use Polidog\Rosanna\State\Snapshot\SnapshotSerializer;
+use Polidog\Rosanna\State\Snapshot\SnapshotVerificationException;
 
 /**
  * SnapshotBehavior::Session のスロット。インスタンス ID => 署名済み JSON の map で、書いた順に並ぶ (SN-24、SN-25)。

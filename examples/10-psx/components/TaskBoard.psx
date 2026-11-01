@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Examples\Psx;
 
-use function Polidog\Rosanna\Runtime\fc;
-use function Polidog\Rosanna\Runtime\useState;
+use function Polidog\Rosanna\State\fc;
+use function Polidog\Rosanna\State\useState;
 
 const TASKS = ['write' => 'Write the changelog', 'test' => 'Run the tests', 'tag' => 'Tag the release'];
 

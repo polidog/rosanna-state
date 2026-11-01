@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Runtime;
+namespace Polidog\Rosanna\State\Tests\Runtime;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -10,9 +10,9 @@ use PHPUnit\Framework\TestCase;
 use function Polidog\Rosanna\Html\createElement;
 
 use Polidog\Rosanna\Html\H;
-use Polidog\Rosanna\Runtime\Action;
 use Polidog\Rosanna\Runtime\RequestLifecycle;
-use Polidog\Rosanna\Tests\Runtime\Support\RendersInScope;
+use Polidog\Rosanna\State\Action;
+use Polidog\Rosanna\State\Tests\Runtime\Support\RendersInScope;
 
 /** RT-2.5、RT-2.6、RT-4.1、RT-4.2、RT-4.3 */
 final class ElementEventsTest extends TestCase

@@ -2,29 +2,29 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Runtime;
+namespace Polidog\Rosanna\State\Tests\Runtime;
 
 use PHPUnit\Framework\TestCase;
-use Polidog\Rosanna\Rosanna;
+use Polidog\Rosanna\State\RosannaState;
 
 /** RT-12.6、02 の 9 節の renderClientScript */
 final class ClientScriptTest extends TestCase
 {
     public function testExternalScriptIsDeferred(): void
     {
-        self::assertStringContainsString('<script src="/rosanna.js" defer></script>', Rosanna::renderClientScript());
+        self::assertStringContainsString('<script src="/rosanna.js" defer></script>', RosannaState::renderClientScript());
     }
 
     public function testSrcIsEscaped(): void
     {
-        $html = Rosanna::renderClientScript('/a.js?v=1&x="y"');
+        $html = RosannaState::renderClientScript('/a.js?v=1&x="y"');
 
         self::assertStringContainsString('src="/a.js?v=1&amp;x=&quot;y&quot;"', $html);
     }
 
     public function testFallbackOnlyTouchesDeferPlaceholders(): void
     {
-        $html = Rosanna::renderClientScript();
+        $html = RosannaState::renderClientScript();
 
         self::assertStringContainsString('data-rosanna-defer-url', $html);
         self::assertStringContainsString('data-rosanna-defer-fallback-loading', $html);
@@ -40,17 +40,17 @@ final class ClientScriptTest extends TestCase
 
     public function testNoPrefixScriptByDefault(): void
     {
-        self::assertStringNotContainsString('window.Rosanna.deferPrefix=', Rosanna::renderClientScript());
+        self::assertStringNotContainsString('window.Rosanna.deferPrefix=', RosannaState::renderClientScript());
     }
 
     public function testDeferPrefixIsPassedAsAJsString(): void
     {
-        self::assertStringContainsString('window.Rosanna.deferPrefix="/api/_d";', Rosanna::renderClientScript('/rosanna.js', '/api/_d'));
+        self::assertStringContainsString('window.Rosanna.deferPrefix="/api/_d";', RosannaState::renderClientScript('/rosanna.js', '/api/_d'));
     }
 
     public function testDeferPrefixCannotCloseTheScript(): void
     {
-        $html = Rosanna::renderClientScript('/rosanna.js', '/x</script><script>alert(1)</script>');
+        $html = RosannaState::renderClientScript('/rosanna.js', '/x</script><script>alert(1)</script>');
 
         self::assertStringNotContainsString('<script>alert(1)', $html);
         self::assertStringContainsString('\\u003C/script\\u003E', $html);
@@ -58,7 +58,7 @@ final class ClientScriptTest extends TestCase
 
     public function testRT126NonceIsOnEveryScript(): void
     {
-        $html = Rosanna::renderClientScript('/rosanna.js', '/_d', 'abc"123');
+        $html = RosannaState::renderClientScript('/rosanna.js', '/_d', 'abc"123');
 
         self::assertSame(3, substr_count($html, '<script'));
         self::assertSame(3, substr_count($html, ' nonce="abc&quot;123"'));
@@ -68,7 +68,7 @@ final class ClientScriptTest extends TestCase
 
     public function testNoNonceAttributeWithoutANonce(): void
     {
-        self::assertStringNotContainsString('nonce', Rosanna::renderClientScript());
+        self::assertStringNotContainsString('nonce', RosannaState::renderClientScript());
     }
 
     /** node があれば構文を確かめる。ブラウザでの動作は手順の確認に記録する */
@@ -78,7 +78,7 @@ final class ClientScriptTest extends TestCase
         if ($node === '') {
             self::markTestSkipped('node is not available');
         }
-        preg_match('/<script>(.*?)<\/script>/s', Rosanna::renderClientScript(), $match);
+        preg_match('/<script>(.*?)<\/script>/s', RosannaState::renderClientScript(), $match);
         $file = (string) tempnam(sys_get_temp_dir(), 'rosanna-inline-') . '.js';
         file_put_contents($file, $match[1]);
 

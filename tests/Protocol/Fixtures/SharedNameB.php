@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Protocol\Fixtures;
+namespace Polidog\Rosanna\State\Tests\Protocol\Fixtures;
 
-use Polidog\Rosanna\Component\BaseComponent;
-use Polidog\Rosanna\Component\Component;
 use Polidog\Rosanna\Html\H;
 use Polidog\Rosanna\Runtime\Element;
-use Polidog\Rosanna\Storage\StorageType;
+use Polidog\Rosanna\State\Component\BaseComponent;
+use Polidog\Rosanna\State\Component\Component;
+use Polidog\Rosanna\State\Storage\StorageType;
 
 /** 別の defer の中で同じインスタンス ID になるコンポーネント (HD-9) */
 #[Component(name: 'Shared', storage: StorageType::Memory)]

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Protocol;
+namespace Polidog\Rosanna\State\Protocol;
 
 /**
  * `_rosanna_action` の値。actionJson は署名の対象のバイト列なので文字列のまま運ぶ (AC-20)。

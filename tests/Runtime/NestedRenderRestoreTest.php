@@ -2,25 +2,25 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Runtime;
+namespace Polidog\Rosanna\State\Tests\Runtime;
 
 use PHPUnit\Framework\TestCase;
-use Polidog\Rosanna\Component\BaseComponent;
-use Polidog\Rosanna\Component\Component;
 use Polidog\Rosanna\Html\H;
-use Polidog\Rosanna\Runtime\ComponentState;
 use Polidog\Rosanna\Runtime\Element;
-
-use function Polidog\Rosanna\Runtime\fc;
-
 use Polidog\Rosanna\Runtime\RenderContext;
 use Polidog\Rosanna\Runtime\RequestLifecycle;
+use Polidog\Rosanna\State\Component\BaseComponent;
+use Polidog\Rosanna\State\Component\Component;
+use Polidog\Rosanna\State\ComponentState;
 
-use function Polidog\Rosanna\Runtime\useState;
+use function Polidog\Rosanna\State\fc;
 
-use Polidog\Rosanna\Snapshot\SnapshotSerializer;
-use Polidog\Rosanna\Storage\StorageType;
-use Polidog\Rosanna\Tests\Runtime\Support\RendersInScope;
+use Polidog\Rosanna\State\RenderPass;
+use Polidog\Rosanna\State\Snapshot\SnapshotSerializer;
+use Polidog\Rosanna\State\Storage\StorageType;
+use Polidog\Rosanna\State\Tests\Runtime\Support\RendersInScope;
+
+use function Polidog\Rosanna\State\useState;
 
 #[Component(name: 'restore-child', storage: 'memory')]
 final class RestoreChild extends BaseComponent
@@ -117,7 +117,7 @@ final class NestedRenderRestoreTest extends TestCase
             try {
                 H::div(children: [new RestoreThrower()]);
             } catch (\DomainException) {
-                $depth = RenderContext::stackDepth();
+                $depth = RenderPass::stackDepth();
             }
 
             return H::div(children: [$sibling]);
@@ -125,7 +125,7 @@ final class NestedRenderRestoreTest extends TestCase
 
         self::assertSame(1, $depth, 'only the parent is on the stack');
         self::assertSame('restore-child#0', $sibling->getComponentState()?->getComponentId());
-        self::assertSame(0, RenderContext::stackDepth());
+        self::assertSame(0, RenderPass::stackDepth());
         self::assertNull(ComponentState::current());
     }
 

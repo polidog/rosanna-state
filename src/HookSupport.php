@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Runtime;
+namespace Polidog\Rosanna\State;
 
-use Polidog\Rosanna\Storage\StorageType;
+use Polidog\Rosanna\State\Storage\StorageType;
 
 /**
  * useState 関数と BaseComponent::useState() で共有する部分。

@@ -2,13 +2,19 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Runtime;
+namespace Polidog\Rosanna\State\Tests\Runtime;
 
 use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
+use Polidog\Rosanna\Runtime\RenderContext;
 use Polidog\Rosanna\Runtime\RequestLifecycle;
-use Polidog\Rosanna\Storage\SessionStorage;
-use Polidog\Rosanna\Tests\Storage\SessionTestHelper;
+use Polidog\Rosanna\State\ComponentState;
+use Polidog\Rosanna\State\Http\Request;
+use Polidog\Rosanna\State\RenderPass;
+use Polidog\Rosanna\State\RosannaState;
+use Polidog\Rosanna\State\Storage\SessionStorage;
+use Polidog\Rosanna\State\Storage\StorageType;
+use Polidog\Rosanna\State\Tests\Storage\SessionTestHelper;
 
 /**
  * RT-9.6 worker モードの 1 プロセスで訪問者が入れ替わる。
@@ -124,6 +130,31 @@ final class RequestLifecycleTest extends TestCase
 
         self::assertNotSame(self::ALICE, session_id());
         self::assertMatchesRegularExpression('/^[A-Za-z0-9,-]+$/D', (string) session_id());
+    }
+
+    /** RT-9.6 host が呼ぶのは本体の `reset()` だけで、状態層の登録は autoload が済ませている */
+    #[RunInSeparateProcess]
+    public function testRT96ResetAloneClearsStateAndSession(): void
+    {
+        self::aliceWrites();
+        $state = ComponentState::getInstance('Secret#0', StorageType::Memory);
+        $state->setState(0, 'secret');
+        ComponentState::setCurrent($state);
+        RenderPass::beginComponent('A');
+
+        RenderContext::run(new RosannaState()->setSnapshotSecret('s-fixture-secret-key')->scope(new Request('GET', '/', '/', '')), static function (): void {
+            RequestLifecycle::reset();
+            self::assertNull(RenderContext::currentScope());
+        });
+
+        // セッション
+        self::assertSame(PHP_SESSION_NONE, session_status());
+        self::assertSame([], $_SESSION);
+        // 状態
+        self::assertNull(ComponentState::current());
+        self::assertFalse(ComponentState::getInstance('Secret#0', StorageType::Memory)->hasState(0));
+        // 描画パス
+        self::assertSame(['instanceCounts' => [], 'componentStack' => []], RenderPass::currentPass());
     }
 
     #[RunInSeparateProcess]

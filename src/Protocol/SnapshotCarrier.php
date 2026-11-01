@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Protocol;
+namespace Polidog\Rosanna\State\Protocol;
 
-use Polidog\Rosanna\Snapshot\SnapshotSerializer;
-use Polidog\Rosanna\Snapshot\SnapshotVerificationException;
+use Polidog\Rosanna\State\Snapshot\SnapshotSerializer;
+use Polidog\Rosanna\State\Snapshot\SnapshotVerificationException;
 
 /**
  * JavaScript なしの全ページ応答で、各 action フォームにページ上のスナップショットを足す (SN-19)。

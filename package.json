@@ -1,7 +1,7 @@
 {
-  "name": "rosanna-browser-tests",
+  "name": "rosanna-state-browser-tests",
   "private": true,
-  "description": "Real browser tests for Rosanna: actual PHP (php -S) and public/rosanna.js, driven by Playwright.",
+  "description": "Real browser tests for Rosanna State: actual PHP (php -S) and public/rosanna.js, driven by Playwright.",
   "license": "MIT",
   "scripts": {
     "test:browser": "playwright test"

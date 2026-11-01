@@ -2,23 +2,22 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Runtime;
+namespace Polidog\Rosanna\State\Tests\Runtime;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
 use Polidog\Rosanna\Html\H;
 use Polidog\Rosanna\Runtime\Element;
-
-use function Polidog\Rosanna\Runtime\fc;
-
 use Polidog\Rosanna\Runtime\RequestLifecycle;
 
-use function Polidog\Rosanna\Runtime\useState;
+use function Polidog\Rosanna\State\fc;
 
-use Polidog\Rosanna\Storage\StorageType;
-use Polidog\Rosanna\Tests\Runtime\Support\RendersInScope;
-use Polidog\Rosanna\Tests\Storage\SessionTestHelper;
+use Polidog\Rosanna\State\Storage\StorageType;
+use Polidog\Rosanna\State\Tests\Runtime\Support\RendersInScope;
+use Polidog\Rosanna\State\Tests\Storage\SessionTestHelper;
+
+use function Polidog\Rosanna\State\useState;
 
 /** RT-4.7 (#87): 行数を 2 倍にしても HTML のサイズがおよそ 2 倍に収まる */
 final class HtmlSizeTest extends TestCase

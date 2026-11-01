@@ -1,10 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <files psalm-version="6.20.5@e447b655502f2058630e6ee03f2ea1c3789fe166">
-  <file src="src/Psx/CompileCommand.php">
-    <InvalidReturnType>
-      <code><![CDATA[never]]></code>
-    </InvalidReturnType>
-  </file>
   <file src="src/Http/Request.php">
     <RedundantCast>
       <code><![CDATA[(string) $name]]></code>
@@ -19,7 +14,7 @@
       <code><![CDATA[$_SESSION]]></code>
     </InvalidScalarArgument>
   </file>
-  <file src="src/Runtime/StateDiff.php">
+  <file src="src/StateDiff.php">
     <InvalidArrayOffset>
       <code><![CDATA[$base[$baseCount - 1 - $tail]]]></code>
       <code><![CDATA[$next[$nextCount - 1 - $tail]]]></code>

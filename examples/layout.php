@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Polidog\Rosanna\Rosanna;
+use Polidog\Rosanna\State\RosannaState;
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
@@ -13,7 +13,7 @@ require_once __DIR__ . '/../vendor/autoload.php';
 function example_layout(string $title, string $body): string
 {
     $escaped = htmlspecialchars($title, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-    $script = Rosanna::renderClientScript();
+    $script = RosannaState::renderClientScript();
 
     return <<<HTML
         <!doctype html>

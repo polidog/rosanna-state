@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Component;
+namespace Polidog\Rosanna\State\Tests\Component;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
-use Polidog\Rosanna\Component\Defer;
 use Polidog\Rosanna\Html\H;
 use Polidog\Rosanna\Runtime\Element;
 use Polidog\Rosanna\Runtime\RequestLifecycle;
-use Polidog\Rosanna\Tests\Runtime\Support\RendersInScope;
+use Polidog\Rosanna\State\Component\Defer;
+use Polidog\Rosanna\State\Tests\Runtime\Support\RendersInScope;
 
 /** Defer と H::defer、属性名は js-contract */
 final class DeferTest extends TestCase

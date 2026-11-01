@@ -2,16 +2,17 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Runtime\Support;
+namespace Polidog\Rosanna\State\Tests\Runtime\Support;
 
-use Polidog\Rosanna\Protocol\ActionSigner;
-use Polidog\Rosanna\Protocol\CsrfGuard;
 use Polidog\Rosanna\Runtime\Element;
 use Polidog\Rosanna\Runtime\PsxRenderer;
 use Polidog\Rosanna\Runtime\RenderContext;
-use Polidog\Rosanna\Runtime\RendererFactory;
 use Polidog\Rosanna\Runtime\RenderScope;
-use Polidog\Rosanna\Snapshot\SnapshotSerializer;
+use Polidog\Rosanna\State\Protocol\ActionSigner;
+use Polidog\Rosanna\State\Protocol\CsrfGuard;
+use Polidog\Rosanna\State\RendererFactory;
+use Polidog\Rosanna\State\Snapshot\SnapshotSerializer;
+use Polidog\Rosanna\State\StateScope;
 
 /**
  * RenderScope を直接組み立てる。Rosanna 本体を通さずに描画を確かめるため。
@@ -31,17 +32,19 @@ trait RendersInScope
         $signer = new ActionSigner($secret);
         $serializer = $secret === null ? null : new SnapshotSerializer($secret);
         $signingScope = $deferName === null ? ActionSigner::pageScope('/page') : ActionSigner::deferScope($deferName);
-        $pageSigner = $signer->forRequest(new \Polidog\Rosanna\Http\Request('GET', '/page', '/page', ''), $deferName);
+        $pageSigner = $signer->forRequest(new \Polidog\Rosanna\State\Http\Request('GET', '/page', '/page', ''), $deferName);
 
-        return new RenderScope(
+        $psx ??= new PsxRenderer();
+
+        return new RenderScope($psx, new StateScope(
             new RendererFactory($serializer, $pageSigner, $csrf ?? new CsrfGuard(), $deferPrefix),
-            $psx ?? new PsxRenderer(),
+            $psx,
             $serializer,
             $pageSigner,
             $signingScope,
             $deferName,
             $deferComponent,
-        );
+        ));
     }
 
     /** Element を作るところから同じスコープで動かす */
@@ -53,7 +56,7 @@ trait RendersInScope
             $element = $build();
             \assert($element instanceof Element || is_string($element));
 
-            return $scope->renderers->create($rootId)->renderElement($element);
+            return $scope->state->renderers->create($rootId)->renderElement($element);
         });
     }
 

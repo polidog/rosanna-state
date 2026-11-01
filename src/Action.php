@@ -2,11 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Runtime;
+namespace Polidog\Rosanna\State;
 
-use Polidog\Rosanna\Storage\StorageType;
+use Polidog\Rosanna\Runtime\EventBinding;
+use Polidog\Rosanna\State\Storage\StorageType;
 
-final readonly class Action
+final readonly class Action implements EventBinding
 {
     public const SET_STATE = 'setState';
     public const SET_FIELDS = 'setFields';

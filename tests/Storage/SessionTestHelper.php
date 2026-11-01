@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Storage;
+namespace Polidog\Rosanna\State\Tests\Storage;
 
 /**
  * 別プロセスのテストのセッションを、テストごとの一時ディレクトリに閉じ込める。

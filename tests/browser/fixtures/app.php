@@ -4,31 +4,30 @@ declare(strict_types=1);
 
 // `php -S` のルータースクリプト。実際の Rosanna でページを出す。パスの先頭で場面を選ぶ
 
-use Polidog\Rosanna\Component\Defer;
 use Polidog\Rosanna\Html\H;
-use Polidog\Rosanna\Http\Request;
-use Polidog\Rosanna\Rosanna;
 use Polidog\Rosanna\Runtime\Element;
-
-use function Polidog\Rosanna\Runtime\fc;
-
-use Polidog\Rosanna\Runtime\FunctionComponent;
 use Polidog\Rosanna\Runtime\RenderContext;
+use Polidog\Rosanna\State\Component\Defer;
 
-use function Polidog\Rosanna\Runtime\useFormAction;
-use function Polidog\Rosanna\Runtime\useState;
+use function Polidog\Rosanna\State\fc;
 
-use Polidog\Rosanna\Snapshot\SnapshotBehavior;
-use Polidog\Rosanna\Storage\SnapshotPersist;
-use Polidog\Rosanna\Storage\StorageType;
+use Polidog\Rosanna\State\FunctionComponent;
+use Polidog\Rosanna\State\Http\Request;
+use Polidog\Rosanna\State\RosannaState;
+use Polidog\Rosanna\State\Snapshot\SnapshotBehavior;
+use Polidog\Rosanna\State\Storage\SnapshotPersist;
+use Polidog\Rosanna\State\Storage\StorageType;
+
+use function Polidog\Rosanna\State\useFormAction;
+use function Polidog\Rosanna\State\useState;
 
 require __DIR__ . '/../../../vendor/autoload.php';
 
 ini_set('display_errors', '0');
 
 /** JS-25 クラスの setter は action に storageType を入れない (RT-5.3) */
-#[Polidog\Rosanna\Component\Component(name: 'ClassCounter')]
-final class ClassCounter extends Polidog\Rosanna\Component\BaseComponent
+#[Polidog\Rosanna\State\Component\Component(name: 'ClassCounter')]
+final class ClassCounter extends Polidog\Rosanna\State\Component\BaseComponent
 {
     public function render(): Element
     {
@@ -39,11 +38,11 @@ final class ClassCounter extends Polidog\Rosanna\Component\BaseComponent
 }
 
 /** JS-13 の「鍵の変更」は Cookie で切り替える */
-function newApp(Request $request): Rosanna
+function newApp(Request $request): RosannaState
 {
     $secret = $request->cookies['fixture_secret'] ?? 'browser-fixture-secret';
 
-    return new Rosanna()->setSnapshotSecret(is_string($secret) ? $secret : 'browser-fixture-secret');
+    return new RosannaState()->setSnapshotSecret(is_string($secret) ? $secret : 'browser-fixture-secret');
 }
 
 function storageFrom(string $name): StorageType
@@ -52,7 +51,7 @@ function storageFrom(string $name): StorageType
 }
 
 /** @param \Closure(): Element $page */
-function serve(Rosanna $app, Request $request, \Closure $page, SnapshotBehavior $behavior = SnapshotBehavior::Isolated, string $tail = ''): void
+function serve(RosannaState $app, Request $request, \Closure $page, SnapshotBehavior $behavior = SnapshotBehavior::Isolated, string $tail = ''): void
 {
     $response = $app->actions()->handle($request, replay: static fn(bool $partial): Element => $page(), behavior: $behavior);
     if ($response !== null) {
@@ -69,7 +68,7 @@ function serve(Rosanna $app, Request $request, \Closure $page, SnapshotBehavior 
     $src = is_string($_GET['src'] ?? null) ? $_GET['src'] : '/rosanna.js';
     // セッションを読むので出力より先に描画する
     $body = RenderContext::run($app->scope($request), static fn(): string => $app->renderElement($page()));
-    echo '<!doctype html><html><head><meta charset="utf-8"><title>fixture</title>', Rosanna::renderClientScript($src, null, $nonce), '</head><body>', $body, $tail, '</body></html>';
+    echo '<!doctype html><html><head><meta charset="utf-8"><title>fixture</title>', RosannaState::renderClientScript($src, null, $nonce), '</head><body>', $body, $tail, '</body></html>';
 }
 
 /**
@@ -241,7 +240,7 @@ function sameIdCounter(string $label, StorageType $storage): FunctionComponent
     }, key: 'same-' . $storage->value, storageType: $storage);
 }
 
-function deferApp(Request $request): Rosanna
+function deferApp(Request $request): RosannaState
 {
     $app = newApp($request);
     $plain = fc(static fn(): Element => H::p(id: 'plain', children: 'plain'), key: 'plain', storageType: StorageType::Memory, defer: new Defer('plain'));
@@ -291,38 +290,6 @@ function deferApp(Request $request): Rosanna
     return $app;
 }
 
-/** @return array<string, Element> 01 の決定の記録の 8 */
-function svgCases(): array
-{
-    $js = 'javascript:window.__pwned=true';
-    $link = static fn(Element $animation, array $svg = [], array $a = []): Element => H::svg(...[...$svg, 'width' => '300', 'height' => '60'], children: H::a(...$a, children: [
-        H::text(...['id' => 'target', 'x' => '10', 'y' => '30', 'font-size' => '24', 'children' => 'click']),
-        $animation,
-    ]));
-    $xlink = ['xmlns:xlink' => 'http://www.w3.org/1999/xlink'];
-
-    return [
-        'set-to' => $link(H::set(attributeName: 'href', to: $js)),
-        'set-to-tab' => $link(H::set(attributeName: 'href', to: "java\tscript:window.__pwned=true")),
-        'set-uppercase-tag' => $link(H::SET(attributeName: 'href', to: $js)),
-        'set-lowercase-name' => $link(H::set(attributename: 'href', to: $js)),
-        'set-xlink' => $link(H::set(attributeName: 'xlink:href', to: $js), $xlink),
-        'set-over-safe-href' => $link(H::set(attributeName: 'href', to: $js), [], ['href' => '/other']),
-        'animate-values' => $link(H::animate(attributeName: 'href', values: $js, dur: '100s')),
-        'animate-second-value' => $link(H::animate(attributeName: 'href', values: '/other;' . $js, keyTimes: '0;0.0001', dur: '1s', calcMode: 'discrete', fill: 'freeze')),
-        'animate-to' => $link(H::animate(attributeName: 'href', to: $js, dur: '100s', fill: 'freeze')),
-        'animate-from' => $link(H::animate(attributeName: 'href', from: $js, to: '/other', dur: '1000s')),
-        'animate-by' => $link(H::animate(attributeName: 'href', by: $js, dur: '100s', fill: 'freeze')),
-        'animate-xlink' => $link(H::animate(attributeName: 'xlink:href', values: $js, dur: '100s'), $xlink),
-        'set-targets-by-href' => H::svg(...['width' => '300', 'height' => '60'], children: [
-            H::a(id: 'l', children: H::text(...['id' => 'target', 'x' => '10', 'y' => '30', 'font-size' => '24', 'children' => 'click'])),
-            H::set(href: '#l', attributeName: 'href', to: $js),
-        ]),
-        // 対照: 無害な値のアニメーションは残り、クリックで移動する
-        'safe' => $link(H::set(attributeName: 'href', to: '/other')),
-    ];
-}
-
 $request = Request::fromGlobals();
 $segments = explode('/', ltrim($request->path, '/'));
 $scene = $segments[0];
@@ -358,7 +325,7 @@ switch ($scene) {
 
         // 秘密鍵なし。署名の鍵のために描画でセッションが始まる (SG-3)
     case 'nosecret':
-        $app = new Rosanna();
+        $app = new RosannaState();
         $a = widget('a', StorageType::Session);
         $b = widget('b', StorageType::Session);
         serve($app, $request, static fn(): Element => H::main(children: [$a(), $b()]));
@@ -405,7 +372,7 @@ switch ($scene) {
             return;
         }
         $body = $app->render(ClassCounter::class, key: 'a') . $app->render(ClassCounter::class, key: 'b');
-        echo '<!doctype html><html><head><meta charset="utf-8"><title>fixture</title>', Rosanna::renderClientScript('/rosanna.js'), '</head><body>', $body, '</body></html>';
+        echo '<!doctype html><html><head><meta charset="utf-8"><title>fixture</title>', RosannaState::renderClientScript('/rosanna.js'), '</head><body>', $body, '</body></html>';
 
         return;
 
@@ -581,26 +548,6 @@ switch ($scene) {
             return;
         }
         $response->send();
-
-        return;
-
-    case 'svg':
-        $cases = svgCases();
-        if ($arg === 'control') {
-            // 対照: DOM で href を書き換えると同じクリックでスクリプトが動く。観察の方法が正しい証拠
-            echo '<!doctype html><html><body><svg width="300" height="60"><a id="l"><text id="target" x="10" y="30" font-size="24">click</text></a></svg>'
-                . '<script>document.getElementById("l").setAttribute("href", "javascript:window.__pwned=true")</script></body></html>';
-
-            return;
-        }
-        if ($arg === 'list') {
-            header('Content-Type: application/json');
-            echo json_encode(array_keys($cases));
-
-            return;
-        }
-        $app = newApp($request);
-        echo '<!doctype html><html><body>', $app->renderElement($cases[$arg]), '</body></html>';
 
         return;
 }

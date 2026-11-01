@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Component;
+namespace Polidog\Rosanna\State\Tests\Component;
 
 use PHPUnit\Framework\TestCase;
-use Polidog\Rosanna\Component\BaseComponent;
-use Polidog\Rosanna\Component\Component;
 use Polidog\Rosanna\Html\H;
 use Polidog\Rosanna\Runtime\Element;
-use Polidog\Rosanna\Storage\SnapshotPersist;
-use Polidog\Rosanna\Storage\StorageType;
+use Polidog\Rosanna\State\Component\BaseComponent;
+use Polidog\Rosanna\State\Component\Component;
+use Polidog\Rosanna\State\Storage\SnapshotPersist;
+use Polidog\Rosanna\State\Storage\StorageType;
 
 #[Component(name: 'custom-name')]
 final class NamedForAttributeTest extends BaseComponent

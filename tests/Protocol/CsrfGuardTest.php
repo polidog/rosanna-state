@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Protocol;
+namespace Polidog\Rosanna\State\Tests\Protocol;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
-use Polidog\Rosanna\Http\Request;
-use Polidog\Rosanna\Protocol\CsrfGuard;
-use Polidog\Rosanna\Tests\Storage\SessionTestHelper;
+use Polidog\Rosanna\State\Http\Request;
+use Polidog\Rosanna\State\Protocol\CsrfGuard;
+use Polidog\Rosanna\State\Tests\Storage\SessionTestHelper;
 
 final class CsrfGuardTest extends TestCase
 {

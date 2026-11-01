@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Protocol;
+namespace Polidog\Rosanna\State\Tests\Protocol;
 
 use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
-use Polidog\Rosanna\Rosanna;
-use Polidog\Rosanna\Runtime\ComponentState;
-use Polidog\Rosanna\Runtime\StateDiff;
-use Polidog\Rosanna\Storage\StateKey;
-use Polidog\Rosanna\Storage\StorageType;
-use Polidog\Rosanna\Tests\Protocol\Support\ActionRequests;
-use Polidog\Rosanna\Tests\Storage\SessionTestHelper;
+use Polidog\Rosanna\State\ComponentState;
+use Polidog\Rosanna\State\RosannaState;
+use Polidog\Rosanna\State\StateDiff;
+use Polidog\Rosanna\State\Storage\StateKey;
+use Polidog\Rosanna\State\Storage\StorageType;
+use Polidog\Rosanna\State\Tests\Protocol\Support\ActionRequests;
+use Polidog\Rosanna\State\Tests\Storage\SessionTestHelper;
 
 /** バージョンが同じで中身の違う Session は HTTP からは作れないので、プロセスの中で組み立てる */
 final class ActionHandlerSessionTest extends TestCase
@@ -32,7 +32,7 @@ final class ActionHandlerSessionTest extends TestCase
         $_SESSION['_rosanna_csrf'] = 'token';
         session_write_close();
 
-        $app = new Rosanna()->setSnapshotSecret('s-fixture-secret-key');
+        $app = new RosannaState()->setSnapshotSecret('s-fixture-secret-key');
         $json = (string) json_encode([
             'type' => 'setState',
             'payload' => ['index' => 0, 'patch' => ['r', 'next'], 'base' => StateDiff::hash(['original'])],
@@ -43,7 +43,7 @@ final class ActionHandlerSessionTest extends TestCase
         session_start();
         $fields = self::signed($app, $id, $json) + ['_rosanna_csrf' => 'token'];
         session_write_close();
-        $request = new \Polidog\Rosanna\Http\Request(
+        $request = new \Polidog\Rosanna\State\Http\Request(
             'POST',
             '/page',
             '/page',

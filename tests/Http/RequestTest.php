@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Http;
+namespace Polidog\Rosanna\State\Tests\Http;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use PHPUnit\Framework\TestCase;
-use Polidog\Rosanna\Http\Request;
-use Polidog\Rosanna\Protocol\ActionSigner;
+use Polidog\Rosanna\State\Http\Request;
+use Polidog\Rosanna\State\Protocol\ActionSigner;
 
 #[RunTestsInSeparateProcesses]
 final class RequestTest extends TestCase

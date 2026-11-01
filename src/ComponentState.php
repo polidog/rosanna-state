@@ -2,14 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Runtime;
+namespace Polidog\Rosanna\State;
 
-use Polidog\Rosanna\Storage\MemoryStorage;
-use Polidog\Rosanna\Storage\SessionStorage;
-use Polidog\Rosanna\Storage\SnapshotStorage;
-use Polidog\Rosanna\Storage\StateKey;
-use Polidog\Rosanna\Storage\StateStorageInterface;
-use Polidog\Rosanna\Storage\StorageType;
+use Polidog\Rosanna\State\Snapshot\Snapshot;
+use Polidog\Rosanna\State\Storage\MemoryStorage;
+use Polidog\Rosanna\State\Storage\SessionStorage;
+use Polidog\Rosanna\State\Storage\SnapshotStorage;
+use Polidog\Rosanna\State\Storage\StateKey;
+use Polidog\Rosanna\State\Storage\StateStorageInterface;
+use Polidog\Rosanna\State\Storage\StorageType;
 
 /**
  * 1 インスタンスの hook の位置、状態、バージョン、effect。

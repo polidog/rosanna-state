@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Runtime;
+namespace Polidog\Rosanna\State\Tests\Runtime;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
-use Polidog\Rosanna\Runtime\Action;
-use Polidog\Rosanna\Storage\StorageType;
+use Polidog\Rosanna\State\Action;
+use Polidog\Rosanna\State\Storage\StorageType;
 
 final class ActionTest extends TestCase
 {

@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Component;
+namespace Polidog\Rosanna\State\Tests\Component;
 
 use PHPUnit\Framework\TestCase;
-use Polidog\Rosanna\Component\BaseComponent;
-use Polidog\Rosanna\Component\Component;
 use Polidog\Rosanna\Html\H;
-use Polidog\Rosanna\Runtime\ComponentState;
 use Polidog\Rosanna\Runtime\Element;
-use Polidog\Rosanna\Runtime\RenderContext;
 use Polidog\Rosanna\Runtime\RequestLifecycle;
-use Polidog\Rosanna\Storage\StorageType;
-use Polidog\Rosanna\Tests\Runtime\Support\RendersInScope;
+use Polidog\Rosanna\State\Component\BaseComponent;
+use Polidog\Rosanna\State\Component\Component;
+use Polidog\Rosanna\State\ComponentState;
+use Polidog\Rosanna\State\RenderPass;
+use Polidog\Rosanna\State\Storage\StorageType;
+use Polidog\Rosanna\State\Tests\Runtime\Support\RendersInScope;
 
 #[Component(name: 'reuse', storage: StorageType::Memory)]
 final class ReusedComponent extends BaseComponent
@@ -69,7 +69,7 @@ final class ClassComponentReuseTest extends TestCase
         self::html(static fn() => H::div(children: [$component]), $scope);
         self::html(static fn() => H::div(children: [$component]), $scope);
 
-        self::assertSame('reuse#1', RenderContext::nextInstanceId('reuse'));
+        self::assertSame('reuse#1', RenderPass::nextInstanceId('reuse'));
     }
 
     public function testRT54ReuseRestoresTheParentStateAndStack(): void
@@ -81,7 +81,7 @@ final class ClassComponentReuseTest extends TestCase
 
         H::div(children: [$component]);
         self::assertSame($parent, ComponentState::current());
-        self::assertSame(0, RenderContext::stackDepth());
+        self::assertSame(0, RenderPass::stackDepth());
 
         $component->throws = true;
         try {
@@ -89,7 +89,7 @@ final class ClassComponentReuseTest extends TestCase
             self::fail('Expected the exception');
         } catch (\DomainException) {
             self::assertSame($parent, ComponentState::current());
-            self::assertSame(0, RenderContext::stackDepth());
+            self::assertSame(0, RenderPass::stackDepth());
         }
     }
 
@@ -102,7 +102,7 @@ final class ClassComponentReuseTest extends TestCase
 
             public function render(): Element
             {
-                $this->seen = RenderContext::currentComponentId();
+                $this->seen = RenderPass::currentComponentId();
 
                 return H::div();
             }

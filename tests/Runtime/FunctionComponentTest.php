@@ -2,31 +2,31 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Runtime;
+namespace Polidog\Rosanna\State\Tests\Runtime;
 
 use PHPUnit\Framework\TestCase;
-use Polidog\Rosanna\Component\Defer;
-
-use function Polidog\Rosanna\Html\getFunctionComponentName;
-
 use Polidog\Rosanna\Html\H;
-use Polidog\Rosanna\Protocol\ActionSigner;
-use Polidog\Rosanna\Runtime\Action;
-use Polidog\Rosanna\Runtime\ComponentState;
 use Polidog\Rosanna\Runtime\Element;
-
-use function Polidog\Rosanna\Runtime\fc;
-
-use Polidog\Rosanna\Runtime\FunctionComponent;
 use Polidog\Rosanna\Runtime\RenderContext;
 use Polidog\Rosanna\Runtime\RequestLifecycle;
+use Polidog\Rosanna\State\Action;
+use Polidog\Rosanna\State\Component\Defer;
+use Polidog\Rosanna\State\ComponentState;
 
-use function Polidog\Rosanna\Runtime\useState;
+use function Polidog\Rosanna\State\fc;
 
-use Polidog\Rosanna\Snapshot\SnapshotSerializer;
-use Polidog\Rosanna\Storage\SnapshotPersist;
-use Polidog\Rosanna\Storage\StorageType;
-use Polidog\Rosanna\Tests\Runtime\Support\RendersInScope;
+use Polidog\Rosanna\State\FunctionComponent;
+
+use function Polidog\Rosanna\State\getFunctionComponentName;
+
+use Polidog\Rosanna\State\Protocol\ActionSigner;
+use Polidog\Rosanna\State\RenderPass;
+use Polidog\Rosanna\State\Snapshot\SnapshotSerializer;
+use Polidog\Rosanna\State\Storage\SnapshotPersist;
+use Polidog\Rosanna\State\Storage\StorageType;
+use Polidog\Rosanna\State\Tests\Runtime\Support\RendersInScope;
+
+use function Polidog\Rosanna\State\useState;
 
 /** RT-6、RT-8.1、RT-8.2、SN-10、SN-11、VR-7 */
 final class FunctionComponentTest extends TestCase
@@ -128,7 +128,7 @@ final class FunctionComponentTest extends TestCase
                 self::assertStringContainsString('key', $e->getMessage());
             }
         }
-        self::assertSame(0, RenderContext::stackDepth());
+        self::assertSame(0, RenderPass::stackDepth());
     }
 
     public function testRT68SameIdSharesState(): void
@@ -184,7 +184,7 @@ final class FunctionComponentTest extends TestCase
             try {
                 $child();
             } catch (\DomainException) {
-                $afterCatch = [$state === ComponentState::current(), RenderContext::stackDepth()];
+                $afterCatch = [$state === ComponentState::current(), RenderPass::stackDepth()];
             }
 
             return H::div();
@@ -193,7 +193,7 @@ final class FunctionComponentTest extends TestCase
         $parent();
 
         self::assertSame([true, 1], $afterCatch);
-        self::assertSame(0, RenderContext::stackDepth());
+        self::assertSame(0, RenderPass::stackDepth());
         self::assertNull(ComponentState::current());
     }
 
@@ -303,8 +303,8 @@ final class FunctionComponentTest extends TestCase
     public function testRT94NotTheEndpoint(): void
     {
         $component = new FunctionComponent(static fn() => H::div(), defer: new Defer('a'));
-        self::assertFalse(self::scope()->isDeferredEndpointTarget($component));
-        self::assertTrue(self::scope(deferName: 'a')->isDeferredEndpointTarget($component));
-        self::assertFalse(self::scope(deferName: 'b')->isDeferredEndpointTarget($component));
+        self::assertFalse(self::scope()->state->isDeferredEndpointTarget($component));
+        self::assertTrue(self::scope(deferName: 'a')->state->isDeferredEndpointTarget($component));
+        self::assertFalse(self::scope(deferName: 'b')->state->isDeferredEndpointTarget($component));
     }
 }

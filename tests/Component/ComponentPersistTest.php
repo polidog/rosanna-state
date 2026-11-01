@@ -2,30 +2,29 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Component;
+namespace Polidog\Rosanna\State\Tests\Component;
 
 use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
-use Polidog\Rosanna\Component\BaseComponent;
-use Polidog\Rosanna\Component\Component;
-use Polidog\Rosanna\Component\ComponentRegistry;
 use Polidog\Rosanna\Html\H;
-use Polidog\Rosanna\Runtime\Action;
-use Polidog\Rosanna\Runtime\ComponentState;
 use Polidog\Rosanna\Runtime\Element;
-
-use function Polidog\Rosanna\Runtime\fc;
-
-use Polidog\Rosanna\Runtime\RenderContext;
 use Polidog\Rosanna\Runtime\RequestLifecycle;
+use Polidog\Rosanna\State\Action;
+use Polidog\Rosanna\State\Component\BaseComponent;
+use Polidog\Rosanna\State\Component\Component;
+use Polidog\Rosanna\State\Component\ComponentRegistry;
+use Polidog\Rosanna\State\ComponentState;
 
-use function Polidog\Rosanna\Runtime\useState;
+use function Polidog\Rosanna\State\fc;
 
-use Polidog\Rosanna\Snapshot\SnapshotSerializer;
-use Polidog\Rosanna\Storage\SnapshotPersist;
-use Polidog\Rosanna\Storage\StorageType;
-use Polidog\Rosanna\Tests\Runtime\Support\RendersInScope;
-use Polidog\Rosanna\Tests\Storage\SessionTestHelper;
+use Polidog\Rosanna\State\RenderPass;
+use Polidog\Rosanna\State\Snapshot\SnapshotSerializer;
+use Polidog\Rosanna\State\Storage\SnapshotPersist;
+use Polidog\Rosanna\State\Storage\StorageType;
+use Polidog\Rosanna\State\Tests\Runtime\Support\RendersInScope;
+use Polidog\Rosanna\State\Tests\Storage\SessionTestHelper;
+
+use function Polidog\Rosanna\State\useState;
 
 #[Component(name: 'persist-child', storage: 'snapshot', persist: 'localStorage')]
 final class PersistChild extends BaseComponent
@@ -196,14 +195,14 @@ final class ComponentPersistTest extends TestCase
             try {
                 H::div(children: [new ThrowingChild()]);
             } catch (\DomainException) {
-                $afterCatch = [$state === ComponentState::current(), RenderContext::stackDepth()];
+                $afterCatch = [$state === ComponentState::current(), RenderPass::stackDepth()];
             }
 
             return H::div();
         }, 'parent', StorageType::Memory)();
 
         self::assertSame([true, 1], $afterCatch);
-        self::assertSame(0, RenderContext::stackDepth());
+        self::assertSame(0, RenderPass::stackDepth());
         self::assertNull(ComponentState::current());
     }
 

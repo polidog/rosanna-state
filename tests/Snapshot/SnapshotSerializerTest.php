@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Snapshot;
+namespace Polidog\Rosanna\State\Tests\Snapshot;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
-use Polidog\Rosanna\Runtime\Snapshot;
-use Polidog\Rosanna\Snapshot\SnapshotSerializer;
-use Polidog\Rosanna\Snapshot\SnapshotVerificationException;
+use Polidog\Rosanna\State\Snapshot\Snapshot;
+use Polidog\Rosanna\State\Snapshot\SnapshotSerializer;
+use Polidog\Rosanna\State\Snapshot\SnapshotVerificationException;
 
 final class SnapshotSerializerTest extends TestCase
 {

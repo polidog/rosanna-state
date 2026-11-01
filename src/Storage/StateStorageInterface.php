@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Storage;
+namespace Polidog\Rosanna\State\Storage;
 
 interface StateStorageInterface
 {

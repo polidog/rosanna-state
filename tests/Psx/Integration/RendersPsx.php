@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Psx\Integration;
+namespace Polidog\Rosanna\State\Tests\Psx\Integration;
 
-use Polidog\Rosanna\Http\Request;
 use Polidog\Rosanna\Psx\CompileCommand;
 use Polidog\Rosanna\Psx\Compiler;
-use Polidog\Rosanna\Rosanna;
 use Polidog\Rosanna\Runtime\Element;
 use Polidog\Rosanna\Runtime\RenderContext;
 use Polidog\Rosanna\Runtime\RequestLifecycle;
-use Polidog\Rosanna\Tests\Psx\Support\TemporaryDirectory;
+use Polidog\Rosanna\State\Http\Request;
+use Polidog\Rosanna\State\RosannaState;
+use Polidog\Rosanna\State\Tests\Psx\Support\TemporaryDirectory;
 
 /**
  * コンパイル結果を本物のランタイムで描画するためのヘルパー。
@@ -48,7 +48,7 @@ trait RendersPsx
     /**
      * RT-12.8: スコープの中で $fn を動かす。
      */
-    private function inScope(Rosanna $app, callable $fn): mixed
+    private function inScope(RosannaState $app, callable $fn): mixed
     {
         return RenderContext::run($app->scope($this->request()), $fn);
     }
@@ -58,7 +58,7 @@ trait RendersPsx
      *
      * @param array<string, mixed> $props
      */
-    private function element(string $psx, array $props = [], ?Rosanna $app = null): mixed
+    private function element(string $psx, array $props = [], ?RosannaState $app = null): mixed
     {
         $file = $this->workDir() . '/' . \bin2hex(\random_bytes(6)) . '.php';
         \file_put_contents($file, new Compiler()->compile(
@@ -68,15 +68,15 @@ trait RendersPsx
         $component = require $file;
         \assert($component instanceof \Closure);
 
-        return $this->inScope($app ?? new Rosanna(), static fn(): mixed => $component($props));
+        return $this->inScope($app ?? new RosannaState(), static fn(): mixed => $component($props));
     }
 
     /**
      * @param array<string, mixed> $props
      */
-    private function html(string $psx, array $props = [], ?Rosanna $app = null): string
+    private function html(string $psx, array $props = [], ?RosannaState $app = null): string
     {
-        $app ??= new Rosanna();
+        $app ??= new RosannaState();
         $element = $this->element($psx, $props, $app);
         \assert($element instanceof Element);
 
@@ -91,14 +91,14 @@ trait RendersPsx
      *
      * @param array<string, string> $files ファイル名 (拡張子なし) => ソース
      */
-    private function buildApp(array $files): Rosanna
+    private function buildApp(array $files): RosannaState
     {
         $code = $this->build($files);
         if ($code !== 0) {
             throw new \RuntimeException("compile failed: {$this->commandOutput}");
         }
 
-        return new Rosanna()->loadComponentManifest($this->cacheDir() . '/manifest.php');
+        return new RosannaState()->loadComponentManifest($this->cacheDir() . '/manifest.php');
     }
 
     /**
@@ -115,7 +115,7 @@ trait RendersPsx
         }
 
         \ob_start();
-        $code = new CompileCommand()->run(['--cache=' . $this->cacheDir(), $dir], $this->workDir());
+        $code = new CompileCommand(new \Polidog\Rosanna\State\DeferredManifestCompiler()->compile(...))->run(['--cache=' . $this->cacheDir(), $dir], $this->workDir());
         $this->commandOutput = (string) \ob_get_clean();
 
         return $code;

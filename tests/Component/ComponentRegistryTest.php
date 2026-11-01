@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Component;
+namespace Polidog\Rosanna\State\Tests\Component;
 
 use PHPUnit\Framework\TestCase;
-use Polidog\Rosanna\Component\BaseComponent;
-use Polidog\Rosanna\Component\Component;
-use Polidog\Rosanna\Component\ComponentRegistry;
-use Polidog\Rosanna\Component\Defer;
 use Polidog\Rosanna\Html\H;
 use Polidog\Rosanna\Runtime\Element;
-use Polidog\Rosanna\Storage\SnapshotPersist;
-use Polidog\Rosanna\Storage\StorageType;
+use Polidog\Rosanna\State\Component\BaseComponent;
+use Polidog\Rosanna\State\Component\Component;
+use Polidog\Rosanna\State\Component\ComponentRegistry;
+use Polidog\Rosanna\State\Component\Defer;
+use Polidog\Rosanna\State\Storage\SnapshotPersist;
+use Polidog\Rosanna\State\Storage\StorageType;
 
 #[Component(name: 'shared-name', storage: 'snapshot', persist: 'sessionStorage')]
 #[Defer(name: 'slot', cacheControl: 'public, max-age=60')]

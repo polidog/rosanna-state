@@ -9,7 +9,7 @@ const ROOT = resolve(__dirname, '../..');
 const test = base.extend<{}, { server: PhpServer }>({
   server: [
     async ({}, use) => {
-      execFileSync('php', ['bin/rosanna', 'compile', 'examples/10-psx/components', '--cache=examples/10-psx/var/cache/psx'], { cwd: ROOT });
+      execFileSync('php', ['bin/rosanna-state', 'compile', 'examples/10-psx/components', '--cache=examples/10-psx/var/cache/psx'], { cwd: ROOT });
       const server = await startPhpServer(resolve(ROOT, 'examples/router.php'), { ROSANNA_SNAPSHOT_SECRET: 'examples-test-secret-0123456789' });
       await use(server);
       await server.stop();

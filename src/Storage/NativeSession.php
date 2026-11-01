@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Storage;
+namespace Polidog\Rosanna\State\Storage;
 
 /**
  * PHP のネイティブセッションの開始と再開の判断を 1 か所に置く (U-6)。

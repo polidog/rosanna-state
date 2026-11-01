@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Integration;
+namespace Polidog\Rosanna\State\Tests\Integration;
 
 use PHPUnit\Framework\TestCase;
 
 /**
- * tests/Integration/fixtures/app.php を組み込みサーバーで動かし、実際の HTTP を送る。
+ * fixtures の host (既定は app.php) を組み込みサーバーで動かし、実際の HTTP を送る。
  * Set-Cookie とセッションファイルは CLI の中では確かめられない。
  */
 abstract class AppServerTestCase extends TestCase
@@ -16,6 +16,11 @@ abstract class AppServerTestCase extends TestCase
     private static $server = null;
     private static int $port = 0;
     private static string $dir = '';
+
+    protected static function fixture(): string
+    {
+        return __DIR__ . '/fixtures/app.php';
+    }
 
     public static function setUpBeforeClass(): void
     {
@@ -37,7 +42,7 @@ abstract class AppServerTestCase extends TestCase
             '-d', 'output_buffering=0',
             '-d', 'log_errors=1',
             '-d', 'error_log=' . self::$dir . '/error.log',
-            '-S', '127.0.0.1:' . self::$port, __DIR__ . '/fixtures/app.php',
+            '-S', '127.0.0.1:' . self::$port, static::fixture(),
         ], [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes);
         self::assertIsResource($server);
         self::$server = $server;

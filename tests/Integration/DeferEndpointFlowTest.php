@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Integration;
+namespace Polidog\Rosanna\State\Tests\Integration;
 
-use Polidog\Rosanna\Tests\Protocol\Support\ActionRequests;
+use Polidog\Rosanna\State\Tests\Protocol\Support\ActionRequests;
 
 /**
  * DF-8 `DeferSharedCacheTest` の項目。session_start() と Set-Cookie は実際の HTTP でないと確かめられない。

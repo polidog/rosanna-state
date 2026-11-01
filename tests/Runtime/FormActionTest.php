@@ -2,20 +2,19 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Runtime;
+namespace Polidog\Rosanna\State\Tests\Runtime;
 
 use PHPUnit\Framework\TestCase;
 use Polidog\Rosanna\Html\H;
-
-use function Polidog\Rosanna\Runtime\fc;
-
 use Polidog\Rosanna\Runtime\RequestLifecycle;
 
-use function Polidog\Rosanna\Runtime\useFormAction;
-use function Polidog\Rosanna\Runtime\useState;
+use function Polidog\Rosanna\State\fc;
 
-use Polidog\Rosanna\Storage\StorageType;
-use Polidog\Rosanna\Tests\Runtime\Support\RendersInScope;
+use Polidog\Rosanna\State\Storage\StorageType;
+use Polidog\Rosanna\State\Tests\Runtime\Support\RendersInScope;
+
+use function Polidog\Rosanna\State\useFormAction;
+use function Polidog\Rosanna\State\useState;
 
 /** RT-7.5〜7.7 と Renderer の結合 */
 final class FormActionTest extends TestCase

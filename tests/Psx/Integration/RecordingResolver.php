@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Psx\Integration;
+namespace Polidog\Rosanna\State\Tests\Psx\Integration;
 
 use Polidog\Rosanna\Runtime\PsxArgumentResolver;
 

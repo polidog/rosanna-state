@@ -9,7 +9,7 @@
          failOnRisky="true"
          failOnWarning="true">
     <testsuites>
-        <testsuite name="rosanna">
+        <testsuite name="rosanna-state">
             <directory suffix="Test.php">tests</directory>
         </testsuite>
     </testsuites>

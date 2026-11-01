@@ -4,24 +4,23 @@ declare(strict_types=1);
 
 // 組み込みサーバーで動かす host。パスの先頭で場面を選ぶ
 
-use Polidog\Rosanna\Component\BaseComponent;
-use Polidog\Rosanna\Component\Component;
-use Polidog\Rosanna\Component\Defer;
 use Polidog\Rosanna\Html\H;
-use Polidog\Rosanna\Http\Request;
-use Polidog\Rosanna\Rosanna;
-use Polidog\Rosanna\Runtime\ComponentState;
 use Polidog\Rosanna\Runtime\Element;
-
-use function Polidog\Rosanna\Runtime\fc;
-
 use Polidog\Rosanna\Runtime\RenderContext;
+use Polidog\Rosanna\State\Component\BaseComponent;
+use Polidog\Rosanna\State\Component\Component;
+use Polidog\Rosanna\State\Component\Defer;
+use Polidog\Rosanna\State\ComponentState;
 
-use function Polidog\Rosanna\Runtime\useFormAction;
-use function Polidog\Rosanna\Runtime\useState;
+use function Polidog\Rosanna\State\fc;
 
-use Polidog\Rosanna\Snapshot\SnapshotBehavior;
-use Polidog\Rosanna\Storage\StorageType;
+use Polidog\Rosanna\State\Http\Request;
+use Polidog\Rosanna\State\RosannaState;
+use Polidog\Rosanna\State\Snapshot\SnapshotBehavior;
+use Polidog\Rosanna\State\Storage\StorageType;
+
+use function Polidog\Rosanna\State\useFormAction;
+use function Polidog\Rosanna\State\useState;
 
 require __DIR__ . '/../../../vendor/autoload.php';
 
@@ -77,7 +76,7 @@ $sessionCounter = static fn(string $key) => fc(static function (array $props): E
 switch ($scene) {
     // RT-12.7、02 の 7 節の素の PHP の例そのまま
     case 'readme':
-        $app = new Rosanna();
+        $app = new RosannaState();
         $app->register(Counter::class);
         $request = Request::fromGlobals();
         $response = $app->actions()->handle($request, replay: fn() => $app->render(Counter::class));
@@ -91,7 +90,7 @@ switch ($scene) {
         return;
 
     case 'secret':
-        $app = new Rosanna()->setSnapshotSecret(FIXTURE_SECRET);
+        $app = new RosannaState()->setSnapshotSecret(FIXTURE_SECRET);
         $app->register(Counter::class);
         $response = $app->actions()->handle($request, replay: fn() => $app->render(Counter::class));
         if ($response !== null) {
@@ -105,7 +104,7 @@ switch ($scene) {
 
         // RT-12.8。fc() を host が自分のレイアウトと組み合わせる形
     case 'fc':
-        $app = new Rosanna()->setSnapshotSecret(FIXTURE_SECRET);
+        $app = new RosannaState()->setSnapshotSecret(FIXTURE_SECRET);
         $left = $sessionCounter('left');
         $right = $sessionCounter('right');
         $page = static fn(): Element => H::main(children: [H::h1(children: 'layout'), $left(), $right()]);
@@ -120,7 +119,7 @@ switch ($scene) {
         return;
 
     case 'form':
-        $app = new Rosanna()->setSnapshotSecret(FIXTURE_SECRET);
+        $app = new RosannaState()->setSnapshotSecret(FIXTURE_SECRET);
         $form = fc(static function (): Element {
             [$title, $setTitle] = useState('initial');
 
@@ -138,7 +137,7 @@ switch ($scene) {
 
         // #80 と #87。一覧全体を 1 つの state にする
     case 'list':
-        $app = new Rosanna()->setSnapshotSecret(FIXTURE_SECRET);
+        $app = new RosannaState()->setSnapshotSecret(FIXTURE_SECRET);
         $list = fc(static function (): Element {
             $initial = [];
             for ($i = 1; $i <= 12; $i++) {
@@ -169,7 +168,7 @@ switch ($scene) {
 
         // AC-18 Memory の差分は基準を毎回運ぶ
     case 'list-memory':
-        $app = new Rosanna()->setSnapshotSecret(FIXTURE_SECRET);
+        $app = new RosannaState()->setSnapshotSecret(FIXTURE_SECRET);
         $list = fc(static function (): Element {
             $initial = [];
             for ($i = 1; $i <= 12; $i++) {
@@ -200,7 +199,7 @@ switch ($scene) {
 
         // HD-6 完成した HTML を返す replay の Session
     case 'string-replay':
-        $app = new Rosanna()->setSnapshotSecret(FIXTURE_SECRET);
+        $app = new RosannaState()->setSnapshotSecret(FIXTURE_SECRET);
         $counter = $sessionCounter('string-replay');
         $hidden = ($_GET['hidden'] ?? '') === '1';
         $page = static fn(): string => '<main>' . ($hidden ? 'hidden' : $app->renderElement($counter())) . '</main>';
@@ -216,7 +215,7 @@ switch ($scene) {
 
         // VR-4 の例外 Session と Snapshot が同じページにある
     case 'mixed-storage':
-        $app = new Rosanna()->setSnapshotSecret(FIXTURE_SECRET);
+        $app = new RosannaState()->setSnapshotSecret(FIXTURE_SECRET);
         $session = $sessionCounter('mixed-session');
         $snapshot = fc(static function (): Element {
             [$count, $set] = useState(0);
@@ -236,7 +235,7 @@ switch ($scene) {
 
         // 秘密鍵なし (SG-2〜SG-4)
     case 'nosecret':
-        $app = new Rosanna();
+        $app = new RosannaState();
         $counter = $sessionCounter('c');
         $response = $app->actions()->handle($request, replay: static fn(bool $partial): Element => $counter());
         if ($response !== null) {
@@ -278,7 +277,7 @@ switch ($scene) {
             echo 'early';
             flush();
         }
-        $app = new Rosanna()->setSnapshotSecret(FIXTURE_SECRET)->register(SnapshotCounter::class);
+        $app = new RosannaState()->setSnapshotSecret(FIXTURE_SECRET)->register(SnapshotCounter::class);
         $response = $app->actions()->handle($request, replay: fn() => $app->render(SnapshotCounter::class), behavior: $behavior);
         if ($response !== null) {
             $response->send();
@@ -302,14 +301,14 @@ switch ($scene) {
     case 'sign-for-session':
         // このセッションの文脈で署名した値を返す
         session_start();
-        $serializer = new Polidog\Rosanna\Snapshot\SnapshotSerializer(FIXTURE_SECRET, (string) session_id());
-        echo $serializer->serialize(new Polidog\Rosanna\Runtime\Snapshot('SnapshotCounter', '0', [50], version: 3));
+        $serializer = new Polidog\Rosanna\State\Snapshot\SnapshotSerializer(FIXTURE_SECRET, (string) session_id());
+        echo $serializer->serialize(new Polidog\Rosanna\State\Snapshot\Snapshot('SnapshotCounter', '0', [50], version: 3));
 
         return;
 
         // RQ-2 実際のサーバーで handle() の前後を測る
     case 'probe':
-        $app = new Rosanna()->setSnapshotSecret(FIXTURE_SECRET);
+        $app = new RosannaState()->setSnapshotSecret(FIXTURE_SECRET);
         $counter = fc(static function (): Element {
             [$count, $set] = useState(0);
 
@@ -368,10 +367,10 @@ switch ($scene) {
 http_response_code(404);
 echo 'no scene';
 
-/** @param callable(string): Polidog\Rosanna\Runtime\FunctionComponent $sessionCounter */
-function deferredApp(callable $sessionCounter): Rosanna
+/** @param callable(string): Polidog\Rosanna\State\FunctionComponent $sessionCounter */
+function deferredApp(callable $sessionCounter): RosannaState
 {
-    $app = new Rosanna()->setSnapshotSecret(FIXTURE_SECRET);
+    $app = new RosannaState()->setSnapshotSecret(FIXTURE_SECRET);
     $app->register(DeferredClass::class);
 
     $publicWithSession = fc(static function (): Element {

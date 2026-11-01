@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Storage;
+namespace Polidog\Rosanna\State\Storage;
 
-use Polidog\Rosanna\Runtime\Snapshot;
+use Polidog\Rosanna\State\Snapshot\Snapshot;
 
 /**
  * 1 インスタンス分の状態をリクエストの間だけ持つ (ST-7)。

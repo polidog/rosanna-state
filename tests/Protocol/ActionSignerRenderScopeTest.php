@@ -2,13 +2,17 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Protocol;
+namespace Polidog\Rosanna\State\Tests\Protocol;
 
 use PHPUnit\Framework\Attributes\RequiresMethod;
 use PHPUnit\Framework\TestCase;
-use Polidog\Rosanna\Protocol\ActionSigner;
+use Polidog\Rosanna\Runtime\PsxRenderer;
 use Polidog\Rosanna\Runtime\RenderContext;
 use Polidog\Rosanna\Runtime\RenderScope;
+use Polidog\Rosanna\State\Protocol\ActionSigner;
+use Polidog\Rosanna\State\Protocol\CsrfGuard;
+use Polidog\Rosanna\State\RendererFactory;
+use Polidog\Rosanna\State\StateScope;
 
 /**
  * SG-8。束縛のない signer は現在の RenderScope の signingScope を使う。
@@ -22,12 +26,10 @@ final class ActionSignerRenderScopeTest extends TestCase
 
     private static function scope(string $signingScope): RenderScope
     {
-        $scope = new \ReflectionClass(RenderScope::class)->newInstanceWithoutConstructor();
-        \Closure::bind(static function (RenderScope $scope) use ($signingScope): void {
-            $scope->signingScope = $signingScope;
-        }, null, RenderScope::class)($scope);
+        $signer = new ActionSigner('secret-fixture-key-1');
+        $psx = new PsxRenderer();
 
-        return $scope;
+        return new RenderScope($psx, new StateScope(new RendererFactory(null, $signer, new CsrfGuard()), $psx, null, $signer, $signingScope));
     }
 
     public function testSG8SignOutsideAnyScopeIsLogicException(): void

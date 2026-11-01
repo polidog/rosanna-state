@@ -3,18 +3,17 @@
 declare(strict_types=1);
 
 use Polidog\Rosanna\Html\H;
-use Polidog\Rosanna\Http\Request;
-use Polidog\Rosanna\Rosanna;
 use Polidog\Rosanna\Runtime\Element;
-
-use function Polidog\Rosanna\Runtime\fc;
-
 use Polidog\Rosanna\Runtime\RenderContext;
 
-use function Polidog\Rosanna\Runtime\useFormAction;
-use function Polidog\Rosanna\Runtime\useState;
+use function Polidog\Rosanna\State\fc;
 
-use Polidog\Rosanna\Storage\StorageType;
+use Polidog\Rosanna\State\Http\Request;
+use Polidog\Rosanna\State\RosannaState;
+use Polidog\Rosanna\State\Storage\StorageType;
+
+use function Polidog\Rosanna\State\useFormAction;
+use function Polidog\Rosanna\State\useState;
 
 require_once __DIR__ . '/../layout.php';
 
@@ -43,7 +42,7 @@ $Search = fc(function (): Element {
     ]);
 }, key: 'example-search', storageType: StorageType::Snapshot);
 
-$app = new Rosanna();
+$app = new RosannaState();
 $app->setSnapshotSecret((string) getenv('ROSANNA_SNAPSHOT_SECRET'));
 
 $request = Request::fromGlobals();

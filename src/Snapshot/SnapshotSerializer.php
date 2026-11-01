@@ -2,10 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Snapshot;
+namespace Polidog\Rosanna\State\Snapshot;
 
-use Polidog\Rosanna\Runtime\Action;
-use Polidog\Rosanna\Runtime\Snapshot;
+use Polidog\Rosanna\State\Action;
 
 /**
  * スナップショットの署名と検証。期限はなく、鍵か、文脈つきならセッション ID が変わるまで有効 (SN-8)。

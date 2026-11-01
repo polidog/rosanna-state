@@ -2,24 +2,26 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Protocol;
+namespace Polidog\Rosanna\State\Protocol;
 
-use Polidog\Rosanna\Component\BaseComponent;
-use Polidog\Rosanna\Http\Request;
-use Polidog\Rosanna\Http\Response;
-use Polidog\Rosanna\Rosanna;
-use Polidog\Rosanna\Runtime\Action;
-use Polidog\Rosanna\Runtime\ComponentState;
 use Polidog\Rosanna\Runtime\Element;
 use Polidog\Rosanna\Runtime\RenderContext;
 use Polidog\Rosanna\Runtime\RenderScope;
-use Polidog\Rosanna\Runtime\Snapshot;
-use Polidog\Rosanna\Runtime\StateDiff;
-use Polidog\Rosanna\Snapshot\SnapshotBehavior;
-use Polidog\Rosanna\Snapshot\SnapshotUrl;
-use Polidog\Rosanna\Snapshot\SnapshotVerificationException;
-use Polidog\Rosanna\Storage\NativeSession;
-use Polidog\Rosanna\Storage\StorageType;
+use Polidog\Rosanna\State\Action;
+use Polidog\Rosanna\State\Component\BaseComponent;
+use Polidog\Rosanna\State\ComponentState;
+use Polidog\Rosanna\State\Http\Request;
+use Polidog\Rosanna\State\Http\Response;
+use Polidog\Rosanna\State\RenderPass;
+use Polidog\Rosanna\State\RosannaState;
+use Polidog\Rosanna\State\Snapshot\Snapshot;
+use Polidog\Rosanna\State\Snapshot\SnapshotBehavior;
+use Polidog\Rosanna\State\Snapshot\SnapshotUrl;
+use Polidog\Rosanna\State\Snapshot\SnapshotVerificationException;
+use Polidog\Rosanna\State\StateDiff;
+use Polidog\Rosanna\State\StateScope;
+use Polidog\Rosanna\State\Storage\NativeSession;
+use Polidog\Rosanna\State\Storage\StorageType;
 
 /**
  * action の POST を受け、状態を更新して応答を決める。応答の判断はここの 1 か所に置く。
@@ -45,7 +47,7 @@ final class ActionHandler
     private const INVALID_SNAPSHOT = 'Invalid snapshot';
     private const INVALID_FORM = 'Invalid form data';
 
-    public function __construct(private readonly Rosanna $app) {}
+    public function __construct(private readonly RosannaState $app) {}
 
     /**
      * Rosanna の action でなければ null を返す。host はこれより前にページの権限を確かめる。
@@ -90,12 +92,12 @@ final class ActionHandler
         }
 
         $parentState = ComponentState::current();
-        $outerPass = RenderContext::currentPass();
+        $outerPass = RenderPass::currentPass();
         try {
             return $this->process($request, $envelope, $replay, $behavior);
         } finally {
             ComponentState::setCurrent($parentState);
-            RenderContext::resumePass($outerPass);
+            RenderPass::resumePass($outerPass);
         }
     }
 
@@ -208,7 +210,7 @@ final class ActionHandler
         }
 
         // HD-3、AC-9
-        if ($envelope->signature === null || !$scope->signer->verify($instanceId, $signed, $envelope->signature)) {
+        if ($envelope->signature === null || !StateScope::of($scope)->signer->verify($instanceId, $signed, $envelope->signature)) {
             self::log('Action signature missing or invalid for ' . $instanceId);
 
             return self::INVALID_SIGNATURE;
@@ -441,10 +443,10 @@ final class ActionHandler
         }
 
         return RenderContext::run($context->scope, function () use ($context, $component, $name): string {
-            RenderContext::beginRender();
+            RenderPass::beginRender();
             self::reserveInstanceNumber($name, $context->instanceId);
 
-            return self::withDeferQuery($context->deferQuery, static fn(): string => $context->scope->renderers
+            return self::withDeferQuery($context->deferQuery, static fn(): string => StateScope::of($context->scope)->renderers
                 ->create($context->instanceId, $context->storage, deferQuery: $context->deferQuery, deferName: $context->deferName)
                 ->renderPartial(static function () use ($component): Element {
                     $state = ComponentState::current();
@@ -462,7 +464,7 @@ final class ActionHandler
     {
         $key = substr($instanceId, strlen($name) + 1);
         if (preg_match('/^\d{1,9}$/D', $key) === 1) {
-            RenderContext::resumePass(['instanceCounts' => [$name => (int) $key + 1], 'componentStack' => []]);
+            RenderPass::resumePass(['instanceCounts' => [$name => (int) $key + 1], 'componentStack' => []]);
         }
     }
 
@@ -478,7 +480,7 @@ final class ActionHandler
         $found = RenderContext::run($scope, function () use ($context, $replay): ?array {
             // HD-6 部分更新の間に出力したものは断片を壊し、redirect のヘッダーも止めるので捨てる
             $roots = self::buffered(function () use ($context, $replay): array {
-                RenderContext::beginRender();
+                RenderPass::beginRender();
                 [$result, $collected] = $this->app->collectRendered(static fn(): mixed => $replay(true));
                 if ($result instanceof Element) {
                     return [$result, ...$collected];
@@ -512,7 +514,7 @@ final class ActionHandler
             return self::badRequest(self::INVALID_SNAPSHOT);
         }
 
-        $html = RenderContext::run($scope, static fn(): string => self::withDeferQuery($context->deferQuery, static fn(): string => $scope->renderers
+        $html = RenderContext::run($scope, static fn(): string => self::withDeferQuery($context->deferQuery, static fn(): string => StateScope::of($scope)->renderers
             ->create($context->instanceId, $context->storage, deferQuery: $context->deferQuery, deferName: $context->deferName)
             ->renderPartial(static fn(): array => $wrapper->children)));
 
@@ -529,10 +531,10 @@ final class ActionHandler
         $scope = $context->scope;
 
         [$html, $printed] = RenderContext::run($scope, static fn(): array => self::buffered(static function () use ($replay, $scope): string {
-            RenderContext::beginRender();
+            RenderPass::beginRender();
             $result = $replay(false);
 
-            return $result instanceof Element ? $scope->renderers->create('_root_')->renderElement($result) : $result;
+            return $result instanceof Element ? StateScope::of($scope)->renderers->create('_root_')->renderElement($result) : $result;
         }));
 
         return new Response(

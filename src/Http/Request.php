@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Http;
+namespace Polidog\Rosanna\State\Http;
 
 final readonly class Request
 {

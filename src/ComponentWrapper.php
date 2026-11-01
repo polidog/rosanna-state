@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Runtime;
+namespace Polidog\Rosanna\State;
 
-use Polidog\Rosanna\Protocol\ActionSigner;
-use Polidog\Rosanna\Snapshot\SnapshotSerializer;
-use Polidog\Rosanna\Storage\SnapshotPersist;
+use Polidog\Rosanna\State\Protocol\ActionSigner;
+use Polidog\Rosanna\State\Snapshot\SnapshotSerializer;
+use Polidog\Rosanna\State\Storage\SnapshotPersist;
 
 /**
  * コンポーネントのラッパーの属性 (RT-6.4、RT-6.5)。入口によって HTML が変わらないよう 1 か所に置く。
@@ -51,12 +51,12 @@ final class ComponentWrapper
      */
     public static function propsInScope(ComponentState $state, ?SnapshotPersist $persist): array
     {
-        $scope = RenderContext::currentScope();
+        $scope = StateScope::current();
         if ($scope === null) {
             if ($state->isSnapshotStorage()) {
                 throw new \LogicException(
                     'Cannot render a Snapshot component outside of a render scope: the snapshot cannot be signed. '
-                    . 'Render it through RenderContext::run().',
+                    . 'Render it through RenderContext::run() with a scope from RosannaState::scope().',
                 );
             }
 

@@ -2,27 +2,26 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Runtime;
+namespace Polidog\Rosanna\State\Tests\Runtime;
 
 use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
 use Polidog\Rosanna\Html\H;
-use Polidog\Rosanna\Protocol\ActionSigner;
-use Polidog\Rosanna\Protocol\CsrfGuard;
-use Polidog\Rosanna\Runtime\Action;
-use Polidog\Rosanna\Runtime\ComponentState;
 use Polidog\Rosanna\Runtime\Element;
-
-use function Polidog\Rosanna\Runtime\fc;
-
 use Polidog\Rosanna\Runtime\RenderContext;
 use Polidog\Rosanna\Runtime\RequestLifecycle;
+use Polidog\Rosanna\State\Action;
+use Polidog\Rosanna\State\ComponentState;
 
-use function Polidog\Rosanna\Runtime\useState;
+use function Polidog\Rosanna\State\fc;
 
-use Polidog\Rosanna\Storage\StorageType;
-use Polidog\Rosanna\Tests\Runtime\Support\RendersInScope;
-use Polidog\Rosanna\Tests\Storage\SessionTestHelper;
+use Polidog\Rosanna\State\Protocol\ActionSigner;
+use Polidog\Rosanna\State\Protocol\CsrfGuard;
+use Polidog\Rosanna\State\Storage\StorageType;
+use Polidog\Rosanna\State\Tests\Runtime\Support\RendersInScope;
+use Polidog\Rosanna\State\Tests\Storage\SessionTestHelper;
+
+use function Polidog\Rosanna\State\useState;
 
 /**
  * フォームの配置 (RT-4.4〜4.9)。Dom\HTMLDocument は form や table の入れ子をブラウザと同じ規則で扱う。
@@ -165,7 +164,7 @@ final class ActionFormPlacementTest extends TestCase
 
     public function testRT45ExceptionLeavesNoFormsBehind(): void
     {
-        $renderer = self::scope()->renderers->create('_root_');
+        $renderer = self::scope()->state->renderers->create('_root_');
         try {
             $renderer->renderElement(new Element('div', [], [self::button(), new \stdClass()]));
             self::fail();
@@ -179,7 +178,7 @@ final class ActionFormPlacementTest extends TestCase
     public function testRT46PageWithoutActionsDoesNotStartASession(): void
     {
         self::isolateSessions();
-        self::scope(null)->renderers->create('_root_')->renderElement(H::div(children: 'x'));
+        self::scope(null)->state->renderers->create('_root_')->renderElement(H::div(children: 'x'));
         self::assertSame(PHP_SESSION_NONE, session_status());
     }
 
@@ -259,7 +258,7 @@ final class ActionFormPlacementTest extends TestCase
 
     public function testRT47ScopeIsPerOutermostRender(): void
     {
-        $renderer = self::scope()->renderers->create('_root_');
+        $renderer = self::scope()->state->renderers->create('_root_');
         $first = self::dom($renderer->renderElement(self::button()))->querySelector('button');
         $second = self::dom($renderer->renderElement(self::button()))->querySelector('button');
         self::assertNotSame($first?->getAttribute('form'), $second?->getAttribute('form'));
@@ -343,7 +342,7 @@ final class ActionFormPlacementTest extends TestCase
             $wrapper = $build()();
             self::assertSame($instanceId, $wrapper->props['data-rosanna']);
 
-            return $scope->renderers->create($instanceId, StorageType::Snapshot)->renderPartial(static fn() => $wrapper->children);
+            return $scope->state->renderers->create($instanceId, StorageType::Snapshot)->renderPartial(static fn() => $wrapper->children);
         });
 
         $newDocument = self::dom($fragment);
@@ -355,7 +354,7 @@ final class ActionFormPlacementTest extends TestCase
     public function testRT41AndHD11DeferQueryIsCarriedByEveryForm(): void
     {
         $scope = self::scope();
-        $html = $scope->renderers->create('_root_', deferQuery: 'a=1&b=2')->renderElement(H::Fragment([
+        $html = $scope->state->renderers->create('_root_', deferQuery: 'a=1&b=2')->renderElement(H::Fragment([
             self::button(),
             H::form(onSubmit: Action::setState(0, 2, 'C#0')),
             H::input(type: 'submit', onClick: Action::setState(0, 3, 'C#0')),

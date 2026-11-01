@@ -10,7 +10,7 @@ $finder = (new Finder())
     ->in(__DIR__ . '/src')
     ->in(__DIR__ . '/tests')
     ->in(__DIR__ . '/examples')
-    ->exclude(['browser'])
+    ->exclude(['browser', 'var'])
 ;
 
 return (new Config())

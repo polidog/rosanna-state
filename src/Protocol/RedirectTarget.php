@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Protocol;
+namespace Polidog\Rosanna\State\Protocol;
 
-use Polidog\Rosanna\Snapshot\SnapshotUrl;
+use Polidog\Rosanna\State\Snapshot\SnapshotUrl;
 
 /**
  * redirect の行き先 (HD-13)。リクエスト行はクライアントが決めるので、パスだけが origin を離れる原因になる。

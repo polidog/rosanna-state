@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Runtime;
+namespace Polidog\Rosanna\State\Tests\Runtime;
 
 use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
-use Polidog\Rosanna\Runtime\ComponentState;
-use Polidog\Rosanna\Runtime\Snapshot;
-use Polidog\Rosanna\Storage\StorageType;
-use Polidog\Rosanna\Tests\Storage\SessionTestHelper;
+use Polidog\Rosanna\State\ComponentState;
+use Polidog\Rosanna\State\Snapshot\Snapshot;
+use Polidog\Rosanna\State\Storage\StorageType;
+use Polidog\Rosanna\State\Tests\Storage\SessionTestHelper;
 
 final class ComponentStateTest extends TestCase
 {

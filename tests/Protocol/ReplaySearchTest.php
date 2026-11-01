@@ -2,23 +2,22 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Protocol;
+namespace Polidog\Rosanna\State\Tests\Protocol;
 
 use PHPUnit\Framework\TestCase;
 use Polidog\Rosanna\Html\H;
-use Polidog\Rosanna\Http\Response;
-use Polidog\Rosanna\Rosanna;
 use Polidog\Rosanna\Runtime\Element;
-
-use function Polidog\Rosanna\Runtime\fc;
-
-use Polidog\Rosanna\Runtime\FunctionComponent;
 use Polidog\Rosanna\Runtime\RequestLifecycle;
 
-use function Polidog\Rosanna\Runtime\useState;
+use function Polidog\Rosanna\State\fc;
 
-use Polidog\Rosanna\Storage\StorageType;
-use Polidog\Rosanna\Tests\Protocol\Support\ActionRequests;
+use Polidog\Rosanna\State\FunctionComponent;
+use Polidog\Rosanna\State\Http\Response;
+use Polidog\Rosanna\State\RosannaState;
+use Polidog\Rosanna\State\Storage\StorageType;
+use Polidog\Rosanna\State\Tests\Protocol\Support\ActionRequests;
+
+use function Polidog\Rosanna\State\useState;
 
 /** HD-6 replay の木の探し方、SN-18 の適用範囲、AC-16 と AC-18 の連続の適用 */
 final class ReplaySearchTest extends TestCase
@@ -39,9 +38,9 @@ final class ReplaySearchTest extends TestCase
         $this->releaseLog();
     }
 
-    private static function app(): Rosanna
+    private static function app(): RosannaState
     {
-        return new Rosanna()->setSnapshotSecret(self::SECRET);
+        return new RosannaState()->setSnapshotSecret(self::SECRET);
     }
 
     private static function counter(string $key): FunctionComponent

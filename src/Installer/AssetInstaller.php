@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Installer;
+namespace Polidog\Rosanna\State\Installer;
 
 use Composer\Script\Event;
 

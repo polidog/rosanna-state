@@ -3,15 +3,15 @@
 declare(strict_types=1);
 
 use Polidog\Rosanna\Html\H;
-use Polidog\Rosanna\Http\Request;
-use Polidog\Rosanna\Rosanna;
 use Polidog\Rosanna\Runtime\Element;
-
-use function Polidog\Rosanna\Runtime\fc;
-
 use Polidog\Rosanna\Runtime\RenderContext;
 
-use function Polidog\Rosanna\Runtime\useState;
+use function Polidog\Rosanna\State\fc;
+
+use Polidog\Rosanna\State\Http\Request;
+use Polidog\Rosanna\State\RosannaState;
+
+use function Polidog\Rosanna\State\useState;
 
 require_once __DIR__ . '/../layout.php';
 
@@ -29,7 +29,7 @@ $Counter = fc(function (array $props): Element {
     ]);
 }, key: 'example-counter');
 
-$app = new Rosanna();
+$app = new RosannaState();
 $app->setSnapshotSecret((string) getenv('ROSANNA_SNAPSHOT_SECRET'));
 
 $request = Request::fromGlobals();

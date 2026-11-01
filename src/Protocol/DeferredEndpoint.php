@@ -2,16 +2,18 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Protocol;
+namespace Polidog\Rosanna\State\Protocol;
 
-use Polidog\Rosanna\Component\Defer;
-use Polidog\Rosanna\Component\DeferredRegistry;
-use Polidog\Rosanna\Http\Request;
-use Polidog\Rosanna\Http\Response;
-use Polidog\Rosanna\Rosanna;
 use Polidog\Rosanna\Runtime\Element;
 use Polidog\Rosanna\Runtime\RenderContext;
-use Polidog\Rosanna\Storage\NativeSession;
+use Polidog\Rosanna\State\Component\Defer;
+use Polidog\Rosanna\State\Component\DeferredRegistry;
+use Polidog\Rosanna\State\Http\Request;
+use Polidog\Rosanna\State\Http\Response;
+use Polidog\Rosanna\State\RenderPass;
+use Polidog\Rosanna\State\RosannaState;
+use Polidog\Rosanna\State\StateScope;
+use Polidog\Rosanna\State\Storage\NativeSession;
 
 /**
  * `{prefix}/{name}` の GET に、登録された対象の HTML で答える。
@@ -23,7 +25,7 @@ final class DeferredEndpoint
     private const DEFAULT_CACHE_CONTROL = 'private, max-age=0';
 
     public function __construct(
-        private readonly Rosanna $app,
+        private readonly RosannaState $app,
         private readonly DeferredRegistry $registry,
         private readonly string $prefix,
     ) {}
@@ -93,7 +95,7 @@ final class DeferredEndpoint
         ob_start();
         try {
             return RenderContext::run($this->app->scope($request, $name), function () use ($name, $props): Element {
-                RenderContext::beginRender();
+                RenderPass::beginRender();
 
                 return $this->target($name, $props);
             });
@@ -116,7 +118,7 @@ final class DeferredEndpoint
     private function render(Request $request, string $name, array $props): string
     {
         $outerGet = $_GET;
-        $outerPass = RenderContext::currentPass();
+        $outerPass = RenderPass::currentPass();
         // クラスコンポーネントはパラメーターを $_GET から読む。host がパスを書き換えていてもこのリクエストの値にする
         $_GET = $request->query;
         $level = ob_get_level();
@@ -124,11 +126,11 @@ final class DeferredEndpoint
         try {
             $scope = $this->app->scope($request, $name);
             $html = RenderContext::run($scope, function () use ($scope, $request, $name, $props): string {
-                RenderContext::beginRender();
+                RenderPass::beginRender();
                 $element = $this->target($name, $props);
 
                 // HD-9、HD-11 フォームが部分更新のために送信元の名前とクエリを運ぶ
-                return $scope->renderers
+                return StateScope::of($scope)->renderers
                     ->create('_root_', deferQuery: $request->queryString === '' ? null : $request->queryString, deferName: $name)
                     ->renderElement($element);
             });
@@ -139,7 +141,7 @@ final class DeferredEndpoint
                 ob_end_clean();
             }
             $_GET = $outerGet;
-            RenderContext::resumePass($outerPass);
+            RenderPass::resumePass($outerPass);
         }
     }
 

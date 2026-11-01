@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Protocol;
+namespace Polidog\Rosanna\State\Tests\Protocol;
 
 use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
-use Polidog\Rosanna\Protocol\SessionSnapshots;
-use Polidog\Rosanna\Runtime\Snapshot;
-use Polidog\Rosanna\Snapshot\SnapshotSerializer;
-use Polidog\Rosanna\Tests\Storage\SessionTestHelper;
+use Polidog\Rosanna\State\Protocol\SessionSnapshots;
+use Polidog\Rosanna\State\Snapshot\Snapshot;
+use Polidog\Rosanna\State\Snapshot\SnapshotSerializer;
+use Polidog\Rosanna\State\Tests\Storage\SessionTestHelper;
 
 /** SN-24、SN-25 スロットの読み書き */
 final class SessionSnapshotsTest extends TestCase

@@ -1,0 +1,109 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+// パッケージのルートで実行した場合と、依存として入った場合 (RT-13.1)
+foreach ([__DIR__ . '/../vendor/autoload.php', __DIR__ . '/../../../autoload.php'] as $autoload) {
+    if (file_exists($autoload)) {
+        require $autoload;
+        break;
+    }
+}
+
+$fail = static function (string $message): int {
+    fwrite(STDERR, "Error: {$message}\n");
+
+    return 1;
+};
+
+$help = static function (): void {
+    echo <<<'HELP'
+        Rosanna State CLI
+
+        Usage:
+          rosanna-state <command>
+
+        Commands:
+          publish    Copy rosanna.js to your project's public directory
+          compile    Compile .psx files and generate the manifest and the deferred manifest
+          help       Show this help message
+
+        Compile options:
+          rosanna-state compile [options] [paths...]
+
+          Paths are files or directories (default: ./components). A path that does not
+          exist is an error.
+
+          --check               Verify compiled files are up to date, without writing them (CI use)
+          --clean               Remove the contents of the cache directory
+          --watch               Recompile when a .psx file changes (Ctrl+C to stop)
+          --cache=PATH          Cache directory for compiled files and the manifest
+                                (default: ./var/cache/psx)
+
+        Examples:
+          ./vendor/bin/rosanna-state publish
+          ./vendor/bin/rosanna-state compile components/
+          ./vendor/bin/rosanna-state compile --check
+
+        HELP;
+    echo "\n";
+};
+
+$publish = static function () use ($fail): int {
+    // RT-13.2 パッケージの 3 階層上が vendor
+    $vendorDir = dirname(__DIR__, 3);
+    if (basename($vendorDir) !== 'vendor') {
+        // RT-13.3
+        echo "Note: running from the package root. rosanna.js is already in public/\n";
+
+        return 0;
+    }
+
+    $source = dirname(__DIR__) . '/public/rosanna.js';
+    if (!is_file($source)) {
+        return $fail('rosanna.js source not found');
+    }
+
+    $targetDir = dirname($vendorDir) . '/public';
+    if (!is_dir($targetDir)) {
+        if (!@mkdir($targetDir, 0o755, true) && !is_dir($targetDir)) {
+            return $fail("could not create directory {$targetDir}");
+        }
+        echo "Created directory: {$targetDir}\n";
+    }
+
+    $target = $targetDir . '/rosanna.js';
+    if (!@copy($source, $target)) {
+        return $fail("could not copy rosanna.js to {$target}");
+    }
+
+    echo "Published rosanna.js to {$target}\n";
+
+    return 0;
+};
+
+$compile = static function (array $arguments): int {
+    // CP-140
+    return new \Polidog\Rosanna\Psx\CompileCommand(new \Polidog\Rosanna\State\DeferredManifestCompiler()->compile(...))->run($arguments, getcwd() ?: '.');
+};
+
+$command = $argv[1] ?? 'help';
+
+switch ($command) {
+    case 'publish':
+        exit($publish());
+
+    case 'compile':
+        exit($compile(array_slice($argv, 2)));
+
+    case 'help':
+        $help();
+        exit(0);
+
+    default:
+        // RT-13.9
+        fwrite(STDERR, "Unknown command: {$command}\n\n");
+        $help();
+        exit(1);
+}

@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 // 組み込みサーバーで動かす実際のリクエスト。Set-Cookie は CLI の中では確かめられない
 
-use Polidog\Rosanna\Http\Request;
-use Polidog\Rosanna\Http\Response;
-use Polidog\Rosanna\Protocol\ActionSigner;
-use Polidog\Rosanna\Protocol\CsrfGuard;
-use Polidog\Rosanna\Runtime\Action;
-use Polidog\Rosanna\Runtime\ComponentState;
-use Polidog\Rosanna\Storage\StorageType;
+use Polidog\Rosanna\State\Action;
+use Polidog\Rosanna\State\ComponentState;
+use Polidog\Rosanna\State\Http\Request;
+use Polidog\Rosanna\State\Http\Response;
+use Polidog\Rosanna\State\Protocol\ActionSigner;
+use Polidog\Rosanna\State\Protocol\CsrfGuard;
+use Polidog\Rosanna\State\Storage\StorageType;
 
 require __DIR__ . '/../../../vendor/autoload.php';
 

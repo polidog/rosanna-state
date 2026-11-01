@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Protocol;
+namespace Polidog\Rosanna\State\Tests\Protocol;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
-use Polidog\Rosanna\Protocol\ActionEnvelope;
-use Polidog\Rosanna\Runtime\Action;
+use Polidog\Rosanna\State\Action;
+use Polidog\Rosanna\State\Protocol\ActionEnvelope;
 
 final class ActionEnvelopeTest extends TestCase
 {

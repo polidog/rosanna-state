@@ -2,14 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Installer;
+namespace Polidog\Rosanna\State\Tests\Installer;
 
 use Composer\Composer;
 use Composer\Config;
 use Composer\IO\BufferIO;
 use Composer\Script\Event;
 use PHPUnit\Framework\TestCase;
-use Polidog\Rosanna\Installer\AssetInstaller;
+use Polidog\Rosanna\Psx\CompileCommand;
+use Polidog\Rosanna\State\Installer\AssetInstaller;
 
 /** RT-13、CP-140〜142。一時ディレクトリに vendor/polidog/rosanna の配置を作って動かす */
 final class PublishTest extends TestCase
@@ -51,7 +52,7 @@ final class PublishTest extends TestCase
         $package = $this->project . '/vendor/polidog/rosanna';
         mkdir($package . '/bin', 0o755, true);
         mkdir($package . '/public');
-        copy(self::repo('/bin/rosanna'), $package . '/bin/rosanna');
+        copy(self::repo('/bin/rosanna-state'), $package . '/bin/rosanna-state');
         if ($withScript) {
             file_put_contents($package . '/public/rosanna.js', '// published');
         }
@@ -77,7 +78,7 @@ final class PublishTest extends TestCase
     {
         $package = $this->installPackage();
 
-        $result = self::runBin($package . '/bin/rosanna', ['publish']);
+        $result = self::runBin($package . '/bin/rosanna-state', ['publish']);
 
         self::assertSame(0, $result['code'], $result['stdout'] . $result['stderr']);
         self::assertSame('// published', file_get_contents($this->project . '/public/rosanna.js'));
@@ -90,16 +91,16 @@ final class PublishTest extends TestCase
         mkdir($this->project . '/public');
         file_put_contents($this->project . '/public/rosanna.js', 'old');
 
-        self::assertSame(0, self::runBin($package . '/bin/rosanna', ['publish'])['code']);
+        self::assertSame(0, self::runBin($package . '/bin/rosanna-state', ['publish'])['code']);
         self::assertSame('// published', file_get_contents($this->project . '/public/rosanna.js'));
     }
 
     public function testRT133PackageRootOnlyExplains(): void
     {
         mkdir($this->project . '/pkg/bin', 0o755, true);
-        copy(self::repo('/bin/rosanna'), $this->project . '/pkg/bin/rosanna');
+        copy(self::repo('/bin/rosanna-state'), $this->project . '/pkg/bin/rosanna-state');
 
-        $result = self::runBin($this->project . '/pkg/bin/rosanna', ['publish']);
+        $result = self::runBin($this->project . '/pkg/bin/rosanna-state', ['publish']);
 
         self::assertSame(0, $result['code']);
         self::assertStringContainsString('package root', $result['stdout']);
@@ -110,7 +111,7 @@ final class PublishTest extends TestCase
     {
         $package = $this->installPackage(false);
 
-        $result = self::runBin($package . '/bin/rosanna', ['publish']);
+        $result = self::runBin($package . '/bin/rosanna-state', ['publish']);
 
         self::assertSame(1, $result['code']);
         self::assertStringContainsString('source not found', $result['stderr']);
@@ -121,7 +122,7 @@ final class PublishTest extends TestCase
         $package = $this->installPackage();
         file_put_contents($this->project . '/public', 'a file');
 
-        $result = self::runBin($package . '/bin/rosanna', ['publish']);
+        $result = self::runBin($package . '/bin/rosanna-state', ['publish']);
 
         self::assertSame(1, $result['code']);
         self::assertStringContainsString('could not create', $result['stderr']);
@@ -133,7 +134,7 @@ final class PublishTest extends TestCase
         $package = $this->installPackage();
         mkdir($this->project . '/public/rosanna.js', 0o755, true);
 
-        $result = self::runBin($package . '/bin/rosanna', ['publish']);
+        $result = self::runBin($package . '/bin/rosanna-state', ['publish']);
 
         self::assertSame(1, $result['code']);
         self::assertStringContainsString('could not copy', $result['stderr']);
@@ -197,7 +198,7 @@ final class PublishTest extends TestCase
 
         self::assertArrayNotHasKey('composer/composer', $composer['require']);
         self::assertArrayHasKey('composer/composer', $composer['require-dev']);
-        self::assertContains('bin/rosanna', $composer['bin']);
+        self::assertSame(['bin/rosanna-state'], $composer['bin']);
     }
 
     public function testRT138TheScriptIsShipped(): void
@@ -208,7 +209,7 @@ final class PublishTest extends TestCase
 
     public function testRT139UnknownCommandShowsHelpAndFails(): void
     {
-        $result = self::runBin(self::repo('/bin/rosanna'), ['nope']);
+        $result = self::runBin(self::repo('/bin/rosanna-state'), ['nope']);
 
         self::assertSame(1, $result['code']);
         self::assertStringContainsString('Usage:', $result['stdout']);
@@ -218,7 +219,7 @@ final class PublishTest extends TestCase
     public function testHelpExitsZero(): void
     {
         foreach ([[], ['help']] as $arguments) {
-            $result = self::runBin(self::repo('/bin/rosanna'), $arguments);
+            $result = self::runBin(self::repo('/bin/rosanna-state'), $arguments);
 
             self::assertSame(0, $result['code']);
             self::assertStringContainsString('Usage:', $result['stdout']);
@@ -228,9 +229,9 @@ final class PublishTest extends TestCase
     /** CP-142 ヘルプが実装のオプションと一致する */
     public function testCP142HelpListsTheCompileOptions(): void
     {
-        $help = self::runBin(self::repo('/bin/rosanna'), ['help'])['stdout'];
+        $help = self::runBin(self::repo('/bin/rosanna-state'), ['help'])['stdout'];
 
-        preg_match_all("/\\\$arg === '(--[a-z]+)'|str_starts_with\\(\\\$arg, '(--[a-z]+=)'\\)/", (string) file_get_contents(self::repo('/src/Psx/CompileCommand.php')), $matches);
+        preg_match_all("/\\\$arg === '(--[a-z]+)'|str_starts_with\\(\\\$arg, '(--[a-z]+=)'\\)/", (string) file_get_contents((string) new \ReflectionClass(CompileCommand::class)->getFileName()), $matches);
         $options = array_filter([...$matches[1], ...$matches[2]]);
         self::assertNotEmpty($options);
         foreach ($options as $option) {
@@ -246,7 +247,7 @@ final class PublishTest extends TestCase
         mkdir($this->project . '/components');
         file_put_contents($this->project . '/components/Hello.psx', "<?php\nnamespace App;\nreturn fn (array \$props) => <b>x</b>;\n");
 
-        $result = self::runBin($package . '/bin/rosanna', ['compile'], $this->project);
+        $result = self::runBin($package . '/bin/rosanna-state', ['compile'], $this->project);
 
         self::assertSame(0, $result['code'], $result['stdout'] . $result['stderr']);
         self::assertFileExists($this->project . '/var/cache/psx/manifest.php');
@@ -258,7 +259,7 @@ final class PublishTest extends TestCase
         $cwd = $this->project;
         mkdir($cwd . '/components');
         file_put_contents($cwd . '/components/Hello.psx', "<?php\nnamespace App;\nreturn fn (array \$props) => <b>x</b>;\n");
-        $bin = self::repo('/bin/rosanna');
+        $bin = self::repo('/bin/rosanna-state');
 
         $check = self::runBin($bin, ['compile', '--check', '--cache=' . $cwd . '/cache', 'components'], $cwd);
         self::assertSame(1, $check['code'], $check['stdout'] . $check['stderr']);
@@ -275,6 +276,6 @@ final class PublishTest extends TestCase
 
     public function testBinIsExecutable(): void
     {
-        self::assertTrue(is_executable(self::repo('/bin/rosanna')));
+        self::assertTrue(is_executable(self::repo('/bin/rosanna-state')));
     }
 }

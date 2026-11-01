@@ -2,11 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Psx\Integration;
+namespace Polidog\Rosanna\State\Tests\Psx\Integration;
 
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
-use Polidog\Rosanna\Http\Request;
+use Polidog\Rosanna\Runtime\PsxRenderer;
+use Polidog\Rosanna\State\DeferredManifestCompiler;
+use Polidog\Rosanna\State\Http\Request;
 
 /**
  * CP-135、CP-136: `fc(defer: new Defer(...))` の収集と、ランタイムの読み込み (DF-13、RT-11.5)。
@@ -21,8 +23,8 @@ final class DeferredManifestTest extends TestCase
         $cache = $cacheControl === null ? '' : ', cacheControl: ' . \var_export($cacheControl, true);
 
         return "<?php\nnamespace App;\n"
-            . "use Polidog\\Rosanna\\Component\\Defer;\n"
-            . "use function Polidog\\Rosanna\\Runtime\\fc;\n"
+            . "use Polidog\\Rosanna\\State\\Component\\Defer;\n"
+            . "use function Polidog\\Rosanna\\State\\fc;\n"
             . "return fc(fn (array \$props) => <i>deferred</i>, key: '$name', defer: new Defer('$name'$cache));\n";
     }
 
@@ -42,6 +44,7 @@ final class DeferredManifestTest extends TestCase
 
         self::assertSame(
             [
+                PsxRenderer::BUILD_ID_KEY => PsxRenderer::readBuildId($this->cacheDir() . '/manifest.php'),
                 'a-first' => ['component' => 'App\\Zeta', 'cacheControl' => null],
                 'user-header' => ['component' => 'App\\UserHeader', 'cacheControl' => 'private, no-store'],
             ],
@@ -53,14 +56,15 @@ final class DeferredManifestTest extends TestCase
         self::assertStringContainsString('Auto-generated', (string) $lines[1]);
     }
 
-    /** CP-136 */
-    public function testDeferredManifestIsRemovedWhenNoEntriesRemain(): void
+    /** CP-136: 空でも必ず書き、同じ build ID を持つ */
+    public function testDeferredManifestIsEmptiedWhenNoEntriesRemain(): void
     {
         self::assertSame(0, $this->build(['Foo' => $this->deferred('foo')]));
         self::assertFileExists($this->deferredPath());
 
         self::assertSame(0, $this->build(['Foo' => "<?php\nnamespace App;\nreturn fn (array \$props) => <i />;\n"]), $this->commandOutput);
-        self::assertFileDoesNotExist($this->deferredPath());
+        self::assertSame([], DeferredManifestCompiler::read($this->cacheDir() . '/manifest.php'));
+        self::assertSame([PsxRenderer::BUILD_ID_KEY => PsxRenderer::readBuildId($this->cacheDir() . '/manifest.php')], require $this->deferredPath());
     }
 
     /** CP-122: 同じ内容なら書かない */
@@ -92,7 +96,7 @@ final class DeferredManifestTest extends TestCase
         self::assertSame(0, $this->build(['Foo' => $this->deferred('foo')]));
         $run = function (): int {
             \ob_start();
-            $code = new \Polidog\Rosanna\Psx\CompileCommand()->run(['--check', '--cache=' . $this->cacheDir(), $this->workDir() . '/components'], $this->workDir());
+            $code = new \Polidog\Rosanna\Psx\CompileCommand(new DeferredManifestCompiler()->compile(...))->run(['--check', '--cache=' . $this->cacheDir(), $this->workDir() . '/components'], $this->workDir());
             $this->commandOutput = (string) \ob_get_clean();
 
             return $code;

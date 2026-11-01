@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Polidog\Rosanna\Tests\Storage;
+namespace Polidog\Rosanna\State\Tests\Storage;
 
 /**
  * ST-2、ST-3、ST-6、U-5 を実際の HTTP で確かめる。

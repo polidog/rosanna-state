@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-use Polidog\Rosanna\Http\Request;
-use Polidog\Rosanna\Rosanna;
 use Polidog\Rosanna\Runtime\Element;
 use Polidog\Rosanna\Runtime\PsxRenderer;
 use Polidog\Rosanna\Runtime\RenderContext;
+use Polidog\Rosanna\State\Http\Request;
+use Polidog\Rosanna\State\RosannaState;
 
 require_once __DIR__ . '/../layout.php';
 
@@ -14,12 +14,12 @@ $manifest = __DIR__ . '/var/cache/psx/' . PsxRenderer::MANIFEST_FILENAME;
 if (!is_file($manifest)) {
     http_response_code(500);
     echo example_layout('PSX', '<p>Compile the components first:</p>'
-        . '<pre>bin/rosanna compile examples/10-psx/components --cache=examples/10-psx/var/cache/psx</pre>');
+        . '<pre>bin/rosanna-state compile examples/10-psx/components --cache=examples/10-psx/var/cache/psx</pre>');
 
     return;
 }
 
-$app = new Rosanna();
+$app = new RosannaState();
 $app->setSnapshotSecret((string) getenv('ROSANNA_SNAPSHOT_SECRET'));
 $app->loadComponentManifest($manifest);
 
