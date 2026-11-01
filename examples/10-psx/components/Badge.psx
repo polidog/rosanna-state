@@ -1,0 +1,12 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Examples\Psx;
+
+// 状態を持たないコンポーネント。fc() で包まず、関数を返すだけでよい
+return fn(array $props) => (
+    <p id="remaining">
+        {$props['count'] === 0 ? <strong>All done!</strong> : <span>{$props['count']} left</span>}
+    </p>
+);

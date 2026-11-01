@@ -1,0 +1,38 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Examples\Psx;
+
+use function Polidog\Rosanna\Runtime\fc;
+use function Polidog\Rosanna\Runtime\useState;
+
+const TASKS = ['write' => 'Write the changelog', 'test' => 'Run the tests', 'tag' => 'Tag the release'];
+
+return fc(function (array $props) {
+    // タスク ID => 終わったか
+    [$done, $setDone] = useState([]);
+
+    $remaining = count(TASKS) - count(array_filter($done));
+
+    return (
+        <section className="card">
+            <h2>{$props['title']}</h2>
+            <Badge count={$remaining} />
+            <ul>
+                {array_map(
+                    fn(string $id, string $label) => (
+                        <li id={"task-" . $id}>
+                            <button onClick={fn() => $setDone([...$done, $id => !($done[$id] ?? false)])}>
+                                {($done[$id] ?? false) ? 'Undo' : 'Done'}
+                            </button>
+                            {' ' . $label}
+                        </li>
+                    ),
+                    array_keys(TASKS),
+                    TASKS,
+                )}
+            </ul>
+        </section>
+    );
+}, key: 'example-task-board');

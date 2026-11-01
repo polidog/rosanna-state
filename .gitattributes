@@ -1,5 +1,6 @@
 /editors export-ignore
 /docs export-ignore
+/examples export-ignore
 /tests export-ignore
 /.github export-ignore
 /package.json export-ignore

@@ -13,12 +13,12 @@ export interface PhpServer {
 const ROUTER = resolve(__dirname, '../fixtures/app.php');
 
 /** ポートは OS に選ばせ、PHP が出力した値を読む。ワーカーごとに起動しても衝突しない */
-export async function startPhpServer(): Promise<PhpServer> {
+export async function startPhpServer(router: string = ROUTER, env: NodeJS.ProcessEnv = {}): Promise<PhpServer> {
   const sessions = mkdtempSync(join(tmpdir(), 'rosanna-browser-'));
   const php = spawn(
     'php',
-    ['-d', `session.save_path=${sessions}`, '-d', 'display_errors=0', '-d', 'log_errors=1', '-S', '127.0.0.1:0', ROUTER],
-    { stdio: ['ignore', 'pipe', 'pipe'] },
+    ['-d', `session.save_path=${sessions}`, '-d', 'display_errors=0', '-d', 'log_errors=1', '-S', '127.0.0.1:0', router],
+    { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, ...env } },
   );
   const killOnExit = () => php.kill('SIGKILL');
   process.once('exit', killOnExit);
