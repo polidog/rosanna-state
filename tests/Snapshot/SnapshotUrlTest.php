@@ -60,6 +60,21 @@ final class SnapshotUrlTest extends TestCase
         }
     }
 
+    /** SN-33 8190 はメソッドと HTTP のバージョンを含むリクエスト行の上限なので、余裕を見る */
+    public function testSN33TheLimitLeavesRoomForTheRestOfTheRequestLine(): void
+    {
+        self::assertSame(8000, SnapshotUrl::MAX_URL_BYTES);
+        self::assertLessThan(8190, strlen('POST ' . str_repeat('x', SnapshotUrl::MAX_URL_BYTES) . " HTTP/1.1\r\n"));
+    }
+
+    /** SN-33 上限を判断するのは ActionHandler。`with()` は長さで結果を変えない */
+    public function testSN33WithItselfDoesNotApplyTheLimit(): void
+    {
+        $long = '/page?keep=' . str_repeat('q', SnapshotUrl::MAX_URL_BYTES);
+
+        self::assertStringStartsWith($long . '&_rosanna_snapshot=', SnapshotUrl::with($long, self::snapshot(), self::serializer()));
+    }
+
     public function testSN20AddsTheSignedSnapshot(): void
     {
         $url = SnapshotUrl::with('/page', self::snapshot(), self::serializer());

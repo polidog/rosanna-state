@@ -569,11 +569,27 @@ final class ActionHandler
 
         $snapshot = $context->state->createSnapshot();
         try {
-            return SnapshotUrl::with($target, $snapshot, $serializer);
+            $url = SnapshotUrl::with($target, $snapshot, $serializer);
         } catch (\InvalidArgumentException) {
             // 行き先は RedirectTarget が揃えているので通常は届かない。パスはクライアントが選べるので例外にしない
-            return SnapshotUrl::with('/', $snapshot, $serializer);
+            $target = '/';
+            $url = SnapshotUrl::with($target, $snapshot, $serializer);
         }
+
+        if (strlen($url) <= SnapshotUrl::MAX_URL_BYTES) {
+            return $url;
+        }
+
+        // SN-33 長すぎる URL はサーバーの 414 になり、戻る手段がない。クエリもクライアントが選べるので例外にしない
+        self::log(sprintf(
+            'Snapshot dropped (behavior=Persistent): the redirect URL for %s would be %d bytes, over the limit of %d, so the page goes back to its initial state. '
+            . 'Use SnapshotBehavior::Session for a state of this size.',
+            $context->instanceId,
+            strlen($url),
+            SnapshotUrl::MAX_URL_BYTES,
+        ));
+
+        return $target;
     }
 
     /** HD-12 比較にしか使わず状態に入れないので、ここだけは検証しない */

@@ -487,6 +487,7 @@ echo $app->render(Cart::class);
 | `SnapshotBehavior::Session` | `$_SESSION` | 同じ。セッション ID に束縛する |
 
 - Persistent が運ぶのは 1 インスタンスだけです。別のインスタンスへの action が置き換え、ログに警告が出ます。複数のインスタンスがあるページでは Session を使ってください。
+- Persistent の URL はパスとクエリを合わせて 8000 バイトまでです。超えるとスナップショットを入れずに同じ URL に redirect し、ログに警告が出ます。ページは開けますが、状態は前の値でなく初期状態に戻ります。状態が大きくなるページでは Session を使ってください。
 - Session は 64 インスタンスまでで、超えると最も古いものが初期状態に戻ります。URL の `_rosanna_snapshot` は読みません。
 - defer のエンドポイントはセッションのスロットを読みません。
 
@@ -909,6 +910,7 @@ session.cookie_samesite = Lax
 
 - 連打と複数タブの更新は加算されず、描き直されます ([古い画面からの送信](#古い画面からの送信))。
 - セッションは PHP のネイティブセッションだけです。
+- Persistent のスナップショットは URL に入るので、8000 バイトを超える URL では運ばれません ([Snapshot をページの外に置く](#snapshot-をページの外に置く))。8000 バイトは nginx (`large_client_header_buffers` の既定 8k) と Apache (`LimitRequestLine` の既定 8190) に合わせた値です。これより短い上限のプロキシの後ろでは 414 になるので、Session を使ってください。
 - `component()` (`Polidog\Rosanna\State\component()`) はラッパーを出さず、保存先は常に Session です。action はその場の更新でなく再読み込みになります。
 - PSX の成果物は絶対パスに依存します ([PSX](#psx))。
 - 属性のスプレッド (`<div {...$a} />`) と名前空間付きの属性名は PSX では使えません。
