@@ -21,7 +21,12 @@ Status: Draft (2026-11-02、`polidog/rosanna` の 01 から分離。振る舞い
 - 依存の向きは `polidog/rosanna-state` から `polidog/rosanna` への一方向。
 - 初期化は `composer require polidog/rosanna-state` と `new RosannaState()` だけで、bootstrap の呼び出しはない。Composer の `autoload.files` が `src/Hooks.php` と `src/bootstrap.php` を読み、`EventResolver::register()` と `RequestLifecycle::onReset()` で本体に登録する。どちらもリクエストごとの情報を持たないので worker でも問題ない。
 - ホスト側の仕事 (POST を `actions()->handle()` に渡す、リクエストの scope の中で描画する、`renderClientScript()` と `rosanna-state publish` で JS を配信する、Snapshot なら `setSnapshotSecret()` を呼ぶ) は初期化に含まれない。RT-12.7 と README に書く。
-- 本体の RT-2.6 の「状態層が差し込んだ実装」は `State\resolveEventAction()` である。
+- 本体の RT-2.6 の「状態層が差し込んだ実装」は `State\resolveEventAction()` である。戻り値については本体の RT-2.6 の「`Action` 以外なら `null` を返す (`fn() => $cond ? $set(1) : null` のため)」を次のとおり置き換える。`EventResolver` の `null` は「prop を付けない」のままで、状態層が返さなくなるだけである。
+  - クロージャの戻り値が `Action` でなければ、`null` を含めて `InvalidArgumentException` にする。メッセージには、イベント名、戻り値の型、描画中に実行されたこと、`useState` の setter の結果を返すこと、副作用は `useEffect` に書くこと、prop 側に条件を書く形を含める。
+    `function () { $db->delete(1); }` のように Action を返さないクロージャは描画のたびに副作用を起こし、動かないボタンを出す。GET だけでデータを失うのに、気づく手段がないため。`void` のクロージャと `null` を返すクロージャは実行時に区別できないので、`null` だけを許すことはできない。
+  - 例外の時点でクロージャは 1 回実行済みで、その副作用は取り消せない。戻り値を見るには実行するしかないため。
+  - Action を付けない要素は prop 側の条件で書く (`onClick: $can ? fn() => $set(1) : null`)。`null` の prop は本体の RT-2.5 のとおり無視する。
+  - 副作用を持ちつつ `Action` を返すクロージャは検出できない。描画のたびに副作用が起きる。README の制約に書く。
 
 ## 4. Action の束縛とフォームの配置
 

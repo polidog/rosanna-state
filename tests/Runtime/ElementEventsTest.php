@@ -68,10 +68,76 @@ final class ElementEventsTest extends TestCase
         self::assertSame($action, H::div(onClick: static fn() => $action)->props['wire:click']);
     }
 
-    public function testRT26ClosureReturningAnythingElseAddsNoProp(): void
+    /** @return iterable<string, array{\Closure, string}> */
+    public static function closuresReturningNoAction(): iterable
     {
-        self::assertSame([], H::div(onClick: static fn() => null)->props);
-        self::assertSame([], H::div(onClick: static fn() => 'phpinfo')->props);
+        yield 'no return' => [static function () {}, 'null'];
+        yield 'void' => [static function (): void {}, 'null'];
+        yield 'null' => [static fn() => null, 'null'];
+        yield 'function name' => [static fn() => 'phpinfo', 'string'];
+        yield 'bool' => [static fn() => false, 'bool'];
+        yield 'array' => [static fn() => [], 'array'];
+        yield 'object' => [static fn() => new \stdClass(), 'stdClass'];
+    }
+
+    #[DataProvider('closuresReturningNoAction')]
+    public function testRT26ClosureReturningNoActionIsRefused(\Closure $closure, string $type): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage("onClick closure returned {$type} instead of an Action");
+        H::div(onClick: $closure);
+    }
+
+    /** React の書き方のまま副作用を書いたとき、何が悪いかと直し方が例外でわかる */
+    public function testRT26ClosureWithOnlyASideEffectFailsTheRenderAfterRunningOnce(): void
+    {
+        $deleted = 0;
+        try {
+            self::html(static function () use (&$deleted) {
+                return H::button(onClick: static function () use (&$deleted): void {
+                    $deleted++;
+                }, children: 'delete');
+            });
+            self::fail('Expected InvalidArgumentException');
+        } catch (\InvalidArgumentException $e) {
+            self::assertStringContainsString('onClick', $e->getMessage());
+            self::assertStringContainsString('during rendering', $e->getMessage());
+            self::assertStringContainsString('already run', $e->getMessage());
+            self::assertStringContainsString('useState()', $e->getMessage());
+            self::assertStringContainsString('useEffect()', $e->getMessage());
+        }
+        self::assertSame(1, $deleted, 'the side effect cannot be undone: it has run once before the throw');
+    }
+
+    /** void と null は実行時に区別できないので、条件つきの null もクロージャの中では書けない */
+    public function testRT26ConditionInsideTheClosureIsRefused(): void
+    {
+        $can = false;
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('at the prop');
+        H::button(onClick: static fn() => $can ? Action::setState(0, 1) : null);
+    }
+
+    public function testRT26ConditionAtThePropIsTheWayToHaveNoAction(): void
+    {
+        $action = Action::setState(0, 1);
+        $button = static fn(bool $can) => H::button(onClick: $can ? static fn() => $action : null);
+
+        self::assertSame($action, $button(true)->props['wire:click']);
+        self::assertSame([], $button(false)->props);
+        self::assertSame('<button>x</button>', self::html(static fn() => H::button(onClick: null, children: 'x')));
+    }
+
+    public function testRT26EachEventNamesItselfWhenItsClosureReturnsNoAction(): void
+    {
+        foreach (['onClick', 'onChange', 'onInput', 'onSubmit'] as $event) {
+            try {
+                createElement('form', [$event => static fn() => null]);
+                self::fail($event);
+            } catch (\InvalidArgumentException $e) {
+                self::assertStringStartsWith("{$event} closure returned", $e->getMessage());
+            }
+        }
     }
 
     public function testRT26ClosureWithRequiredParameterGetsAClearError(): void

@@ -10,7 +10,7 @@ use Polidog\Rosanna\Runtime\RequestLifecycle;
 use Polidog\Rosanna\State\Storage\NativeSession;
 
 // Composer の autoload.files が読む。リクエストごとの情報を持たないので worker でも問題ない
-EventResolver::register(static fn(string $event, mixed $value): ?EventBinding => resolveEventAction($event, $value));
+EventResolver::register(static fn(string $event, mixed $value): EventBinding => resolveEventAction($event, $value));
 RequestLifecycle::onReset('rosanna-state', static function (): void {
     ComponentState::clearInstances();
     RenderPass::clear();

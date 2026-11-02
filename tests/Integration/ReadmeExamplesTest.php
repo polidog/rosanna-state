@@ -85,6 +85,7 @@ final class ReadmeExamplesTest extends TestCase
             'data-rosanna-reload-defer',          // JS-20
             '/_defer/{name}',                     // DF-12
             'onSubmit',                           // AC-19
+            'onClick: $can ? fn() => $set(1) : null', // RT-2.6
             'localStorage',                       // JS-17
             'composer install --no-dev',          // 計画書: --no-dev
             '`/admin/`',                          // SG-5 と host の保護の差
