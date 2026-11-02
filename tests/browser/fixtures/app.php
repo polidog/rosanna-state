@@ -272,6 +272,62 @@ function morphComponent(): FunctionComponent
     }, key: 'morph', storageType: StorageType::Session);
 }
 
+/** JS-7 子のコンポーネントの行。行は自分の状態と、保存していない入力欄を持つ */
+function morphRow(StorageType $storage): FunctionComponent
+{
+    return fc(static function (array $props): Element {
+        [$n, $set] = useState(0);
+        $id = $props['id'];
+
+        return H::li(id: "row-{$id}", children: [
+            H::span(className: 'n', children: (string) $n),
+            H::button(className: 'inc', onClick: static fn() => $set($n + 1), children: '+1'),
+            H::input(className: 'draft', name: "draft-{$id}"),
+        ]);
+    }, key: 'row', storageType: $storage);
+}
+
+function morphRows(StorageType $storage): FunctionComponent
+{
+    $row = morphRow($storage);
+
+    return fc(static function () use ($row): Element {
+        [$tasks, $setTasks] = useState([1, 2, 3]);
+
+        return H::div(children: [
+            H::button(id: 'reverse', onClick: static fn() => $setTasks(array_reverse($tasks)), children: 'reverse'),
+            H::button(id: 'remove-middle', onClick: static fn() => $setTasks([$tasks[0], ...array_slice($tasks, 2)]), children: 'remove'),
+            H::button(id: 'prepend', onClick: static fn() => $setTasks([max($tasks) + 1, ...$tasks]), children: 'prepend'),
+            H::ul(id: 'rows', children: array_map(static fn(int $id): Element => $row(['key' => $id, 'id' => $id]), $tasks)),
+        ]);
+    }, key: 'tasks', storageType: $storage);
+}
+
+function morphSameRows(): FunctionComponent
+{
+    $same = fc(static function (): Element {
+        [$n, $set] = useState(0);
+
+        return H::li(className: 'same', children: [
+            H::span(className: 'n', children: (string) $n),
+            H::button(className: 'inc', onClick: static fn() => $set($n + 1), children: '+1'),
+            H::input(className: 'draft', name: 'draft'),
+        ]);
+    }, key: 'same-row', storageType: StorageType::Snapshot);
+    $other = fc(static fn(): Element => H::li(className: 'other', children: H::input(className: 'draft', name: 'other')), key: 'other-row', storageType: StorageType::Snapshot);
+
+    return fc(static function () use ($same, $other): Element {
+        [$shape, $setShape] = useState('same-same-other');
+        $rows = ['same-same-other' => [$same, $same, $other], 'other-same-same' => [$other, $same, $same], 'same-other' => [$same, $other]][$shape];
+
+        return H::div(children: [
+            H::button(id: 'other-first', onClick: static fn() => $setShape('other-same-same'), children: 'other first'),
+            H::button(id: 'one-same', onClick: static fn() => $setShape('same-other'), children: 'one same'),
+            H::ul(id: 'rows', children: array_map(static fn(FunctionComponent $row): Element => $row(), $rows)),
+        ]);
+    }, key: 'same-rows', storageType: StorageType::Snapshot);
+}
+
 /** どの $label でも、同じストレージなら同じインスタンス ID になる (HD-9) */
 function sameIdCounter(string $label, StorageType $storage): FunctionComponent
 {
@@ -575,6 +631,22 @@ switch ($scene) {
         $app = newApp($request);
         $component = morphComponent();
         serve($app, $request, static fn(): Element => H::main(children: $component()));
+
+        return;
+
+        // JS-7 親が子のコンポーネントの行を並べ替える。行の直下のラッパーに id は付けられない
+    case 'morph-rows':
+        $app = newApp($request);
+        $list = morphRows(storageFrom($arg));
+        serve($app, $request, static fn(): Element => H::main(children: $list()));
+
+        return;
+
+        // JS-7 同じインスタンス ID の行が同じ親に並ぶ (RT-6.8)
+    case 'morph-rows-same':
+        $app = newApp($request);
+        $list = morphSameRows();
+        serve($app, $request, static fn(): Element => H::main(children: $list()));
 
         return;
 

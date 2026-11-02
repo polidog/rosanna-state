@@ -837,7 +837,7 @@ $response->send();
 `RosannaState::renderClientScript($src, $deferPrefix, $nonce, $deferSrc)` は `rosanna.js` と `rosanna-defer.js` の `<script defer>` と、外部ファイルが読めないときに defer を 1 回だけ取得するインラインの fallback を出します。厳しい CSP では第 3 引数に nonce を渡します。
 
 - 差分適用の後の欄の値は、リクエスト中にユーザーが編集した値、サーバーが前回と違う値を描画した場合はその値、送信したフォームの欄は描画された値、それ以外はユーザーの値の順で決まります。hidden と `button` の `value` はサーバーに従います。
-- 並べ替えや削除のある一覧の行には `id` を付けてください。付けないと位置で対応付けます。
+- 並べ替えや削除のある一覧の行には `id` を付けてください。付けないと位置で対応付けます。行がコンポーネントなら、ラッパーの `data-rosanna` で対応付けるので `id` は要りません。行には props の `key` を渡してください。`key` がなければ ID が出現順で決まるので、値は行ではなく位置に残ります。
 - コンポーネントと祖先、子孫は順番に更新し、兄弟は待ちません。送信中の固定値の action は捨てます。`useFormAction` の action は完了後に最新の値で送り直します。
 - **失敗した部分更新は再送しません。** すでに適用されている可能性があるからです。キャンセルできる `rosanna:submit-error` (`detail.response` か `detail.error`) を出し、キャンセルされなければラッパーに `data-rosanna-error` を付けます。
 

@@ -837,7 +837,7 @@ $response->send();
 `RosannaState::renderClientScript($src, $deferPrefix, $nonce, $deferSrc)` prints a `<script defer>` and an inline fallback that fetches defers once if the external file cannot load. Under a strict CSP, pass a nonce as the third argument.
 
 - After a morph a field's value is, in order: what the user edited during the request; the server's value if it rendered something different from last time; the rendered value for fields of the submitted form; otherwise the user's value. Hidden fields and a `button`'s `value` follow the server.
-- Give rows of reordered or deleted lists an `id`. Without one they are matched by position.
+- Give rows of reordered or deleted lists an `id`. Without one they are matched by position. A row that is a component needs no `id`, because its wrapper is matched by `data-rosanna`. Pass each row a `key` prop; without one the ID comes from the order of appearance, so values stay with the position rather than the row.
 - A component and its ancestors and descendants update in turn; siblings do not wait. A fixed-value action during a submission is dropped. A `useFormAction` action is resent with the latest value afterwards.
 - **A failed partial update is not resent,** because it may already be applied. A cancelable `rosanna:submit-error` (`detail.response` or `detail.error`) fires; if not cancelled, the wrapper gets `data-rosanna-error`.
 
