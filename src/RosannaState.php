@@ -26,6 +26,7 @@ use Polidog\Rosanna\State\Protocol\ActionSigner;
 use Polidog\Rosanna\State\Protocol\CsrfGuard;
 use Polidog\Rosanna\State\Protocol\DeferredFragments;
 use Polidog\Rosanna\State\Protocol\SessionSnapshots;
+use Polidog\Rosanna\State\Protocol\WrapperSearch;
 use Polidog\Rosanna\State\Snapshot\SnapshotBehavior;
 use Polidog\Rosanna\State\Snapshot\SnapshotSerializer;
 use Polidog\Rosanna\State\Snapshot\SnapshotUrl;
@@ -217,7 +218,7 @@ final class RosannaState
                 $component = $this->newComponent($name);
                 $renderer = StateScope::of($scope)->renderers->create($instanceId, $this->registry->getStorageType($name), $this->registry->getPersist($name));
 
-                return $renderer->render(function () use ($component, $instanceId): Element {
+                return RenderPass::inClassScope($instanceId, fn(): string => $renderer->render(function () use ($component, $instanceId): Element {
                     $state = ComponentState::current();
                     if ($component instanceof BaseComponent && $state !== null) {
                         $component->setComponentState($state);
@@ -228,7 +229,7 @@ final class RosannaState
                     }
 
                     return $inner;
-                });
+                }));
             } finally {
                 RenderPass::resumePass($outerPass);
             }
@@ -246,12 +247,14 @@ final class RosannaState
 
         return $this->inScope(function () use ($name, $key): Element {
             $component = $this->newComponent($name);
-            $state = ComponentState::getInstance(RenderPass::nextInstanceId($name, $key), $this->registry->getStorageType($name));
+            $instanceId = RenderPass::nextInstanceId($name, $key);
+            $state = ComponentState::getInstance($instanceId, $this->registry->getStorageType($name));
             ComponentState::reset();
             if ($component instanceof BaseComponent) {
                 $component->setComponentState($state);
             }
-            $inner = $component->render();
+            // 子のクラスは描画のときに番号を取るので、範囲の中で展開する (RT-8.6)
+            $inner = RenderPass::inClassScope($instanceId, static fn(): Element => WrapperSearch::expand($component->render()));
 
             // スナップショットには描画で使われたフックの値が要るので、render() の後に作る
             return new Element('div', ComponentWrapper::propsInScope($state, $this->registry->getPersist($name)), [$inner]);

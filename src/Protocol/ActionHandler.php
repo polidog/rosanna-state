@@ -33,6 +33,7 @@ final class ActionHandler
     private const FIELD_COMPONENT = '_rosanna_component';
     private const FIELD_SNAPSHOT = '_rosanna_snapshot';
     private const FIELD_SNAPSHOTS = '_rosanna_snapshots';
+    private const FIELD_ANCESTORS = '_rosanna_ancestors';
     private const FIELD_BASE = '_rosanna_base';
     private const FIELD_DEFER_QUERY = '_rosanna_defer_query';
     private const FIELD_DEFER = '_rosanna_defer';
@@ -108,12 +109,14 @@ final class ActionHandler
         $instanceId = $request->post[self::FIELD_COMPONENT] ?? null;
         $snapshotJson = $request->post[self::FIELD_SNAPSHOT] ?? null;
         $carried = $request->post[self::FIELD_SNAPSHOTS] ?? [];
+        $ancestors = $request->post[self::FIELD_ANCESTORS] ?? [];
         $deferQuery = $request->post[self::FIELD_DEFER_QUERY] ?? null;
         $deferName = $request->post[self::FIELD_DEFER] ?? null;
         if (
             !is_string($instanceId) || !Action::isValidInstanceId($instanceId)
             || ($snapshotJson !== null && !is_string($snapshotJson))
             || !is_array($carried)
+            || !is_array($ancestors)
             || ($deferQuery !== null && !is_string($deferQuery))
             || ($deferName !== null && !is_string($deferName))
         ) {
@@ -147,13 +150,15 @@ final class ActionHandler
                 $own = $this->verifyOwnSnapshot($instanceId, $snapshotJson);
             }
             $others = $this->verifyCarriedSnapshots($carried, $instanceId);
+            $ancestorSnapshots = $this->verifyCarriedSnapshots($ancestors, $instanceId);
         } catch (SnapshotVerificationException $e) {
             self::log('Snapshot rejected: ' . $e->getMessage());
 
             return self::badRequest(self::INVALID_SNAPSHOT);
         }
 
-        foreach ($others as $snapshot) {
+        // SN-32 祖先は描画の入力で、SN-18 の検査の対象ではない。同じ ID なら子孫の欄を優先する
+        foreach ([...$ancestorSnapshots, ...$others] as $snapshot) {
             ComponentState::fromSnapshot($snapshot);
         }
         $state = $own !== null ? ComponentState::fromSnapshot($own) : ComponentState::getInstance($instanceId, $storage);
@@ -442,11 +447,11 @@ final class ActionHandler
             throw new \LogicException("Component {$name} is not registered.");
         }
 
-        return RenderContext::run($context->scope, function () use ($context, $component, $name): string {
+        return RenderContext::run($context->scope, function () use ($context, $component): string {
             RenderPass::beginRender();
-            self::reserveInstanceNumber($name, $context->instanceId);
 
-            return self::withDeferQuery($context->deferQuery, static fn(): string => StateScope::of($context->scope)->renderers
+            // RT-8.6 GET と同じ範囲で数えるので、key のない子は同じ ID になる
+            return RenderPass::inClassScope($context->instanceId, static fn(): string => self::withDeferQuery($context->deferQuery, static fn(): string => StateScope::of($context->scope)->renderers
                 ->create($context->instanceId, $context->storage, deferQuery: $context->deferQuery, deferName: $context->deferName)
                 ->renderPartial(static function () use ($component): Element {
                     $state = ComponentState::current();
@@ -455,17 +460,8 @@ final class ActionHandler
                     }
 
                     return $component->render();
-                }));
+                })));
         });
-    }
-
-    /** GET ではこのインスタンスが番号を使っている。同じ名前の子の自動採番を揃える (HD-7) */
-    private static function reserveInstanceNumber(string $name, string $instanceId): void
-    {
-        $key = substr($instanceId, strlen($name) + 1);
-        if (preg_match('/^\d{1,9}$/D', $key) === 1) {
-            RenderPass::resumePass(['instanceCounts' => [$name => (int) $key + 1], 'componentStack' => []]);
-        }
     }
 
     /**

@@ -86,7 +86,7 @@ test('JS-25: Session の action の判定', () => {
     assert.equal(isSessionEnvelope(envelope({ type: 'setState', storageType: 'session' })), true);
     assert.equal(isSessionEnvelope(envelope({ type: 'setState', storageType: 'snapshot' })), false);
     assert.equal(isSessionEnvelope(envelope({ type: 'setState', storageType: 'memory' })), false);
-    // RT-5.3 クラスの action は storageType を持たない。Snapshot のラッパーでなければ Session (AC-11)
+    // RT-5.3 state のないクラスの action は storageType を持たない。Snapshot のラッパーでなければ Session (AC-11)
     assert.equal(isSessionEnvelope(envelope({ type: 'setState', storageType: null })), true);
     assert.equal(isSessionEnvelope(envelope({ type: 'setState', storageType: null }), true), false);
     // JS-8 と同じく JSON にならない値は判定しない

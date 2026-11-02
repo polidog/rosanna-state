@@ -113,8 +113,12 @@ final class WrapperSearch
         return $ids;
     }
 
-    /** 手組みの Element は children に配列や未展開の Renderable を持つことがある。出力と同じ 1 回だけ展開する */
-    private static function expand(Element $element): Element
+    /**
+     * 手組みの Element は children に配列や未展開の Renderable を持つことがある。出力と同じ 1 回だけ展開する。
+     *
+     * @internal
+     */
+    public static function expand(Element $element): Element
     {
         if ($element->children === []) {
             return $element;

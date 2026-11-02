@@ -65,6 +65,8 @@ Status: Draft (2026-11-02、`polidog/rosanna` の 01 から分離。振る舞い
 - **RT-4.8** 書き出した後も、同じスコープの間は共有フォームの ID を使い回す。`form` 属性は文書のどの位置のフォームも指せるので、行ごとにアプリの `form` があっても増えない。
   差分の基準 (02 の AC-18) が書き出し済みのフォームに足りないときだけ、新しい共有フォームを作る。
 - **RT-4.9** 個別フォームは action ごとに作り、hidden フィールドをすべて持つ。`submit` の `form` は要素自体が個別フォームになる。
+- **RT-4.10** コンポーネントのラッパーを `table`、`thead`、`tbody`、`tfoot`、`tr`、`colgroup`、`select`、`optgroup` の直下に置いたら、描画のときに `RuntimeException`。
+  ラッパーは `div` なのでパーサーが外に出して空にする。中のフォームも分断され、`rosanna.js` の部分更新が親のラッパーを書き換えて表が消える (Chromium で再現した)。`Fragment` は要素にならないので、その親で判定する。セルの中 (`td`) に置くか、表全体を 1 つのコンポーネントにする。
 
 **テスト:** `tests/Runtime/ActionFormPlacementTest.php` と `ElementEventsTest.php` の項目。次を必ず含める。
 
@@ -118,8 +120,9 @@ final class Component
 
 - **RT-5.1** `getComponentName()` は `#[Component(name:)]`、なければクラス名を返す。
 - **RT-5.2** `$storage` と `$persist` は enum か、その値の文字列を受ける。`persist` を Snapshot 以外に指定したら `InvalidArgumentException`。
-- **RT-5.3** `BaseComponent::useState()` は RT-7.1 と同じだが、setter の Action に `storageType` を入れない。action の処理時にレジストリの設定で決める
-  (`BaseComponent.php:55`、`UsePHP.php:2160`)。state が未設定なら `[$initial, setter]` を返す。
+- **RT-5.3** `BaseComponent::useState()` は RT-7.1 と同じで、setter の Action にインスタンスの `storageType` を入れる。コンストラクタに引数が要るクラスは登録できず、
+  action の処理時にレジストリで保存先を決められないため。登録の有無は setter から見えないので、登録したクラスにも入れる (値はレジストリと同じ)。
+  state が未設定なら `[$initial, setter]` を返し、この setter は `storageType` を持たない。
 - **RT-5.4** `children` に `BaseComponent` のインスタンスを置いた場合 (`Elements.php:1502`)。`BaseComponent` は本体の `ResolvesItself` を実装し、本体の `resolveRenderables()` が `resolve()` を呼ぶ:
   - state が未設定なら、スタックに積んで ID を作り、state を割り当てて `render()` し、`finally` で親の state とスタックを戻す。
   - 設定済みなら新しい番号を取らず、同じ state をスタックに積み、hook の位置を 0 に戻して `render()` し、`finally` で親の state とスタックを戻す。同じインスタンスを再利用しても同じ状態を読む。
@@ -268,9 +271,12 @@ function useEffect(callable $callback, ?array $deps = null): void;
 | なし | `b` | `b` |
 | `a` | `b` | `a/b` |
 
-- **RT-8.3** 連番はパスごとに名前ごとに数える (`RenderContext.php:208`)。親の ID を含めない。
+- **RT-8.3** 連番はパスごとに名前ごとに数える (`RenderContext.php:208`)。親の ID を含めない。例外は RT-8.6。
 - **RT-8.4** usePHP の `ComponentId` の階層形式 (`Page@home/Counter@item-1`) は使われていないので作らない。`Runtime/ComponentId.php` の `parse`、`getPath`、`toString` 系は `src` からも Relayer からも呼ばれていない。
   ID の検証は 02。
+- **RT-8.6** クラスコンポーネントの中の key のない子は、そのインスタンスの中で数え、key を `<クラスのインスタンス ID>/<連番>` にする (`FC@a.php:3#Reg#two/0`)。
+  登録クラスの部分更新はページを描かないので、ページの中の順番に頼ると別のインスタンスの子と番号が重なり、状態が入れ替わる。`fc()` だけの木は replay でページ全体を描くので RT-8.3 のまま。
+  描画のときに番号を取る子 (`children` の `BaseComponent`) も同じ範囲で数えるよう、クラスの `render()` の結果は範囲の中で展開する。
 - **RT-8.5** パスの操作は次のとおり。`resumePass` は名前ごとに大きいほうの連番を残し、入れ子のパスが使った番号を外側のパスが再利用しないようにする
   (`RenderContext.php:92`)。
 
