@@ -11,12 +11,12 @@ This package holds the hooks (`fc()`, `useState` and the rest), actions, signatu
 It has no router, no DI and no events. Choosing a page from a URL belongs to the host (a framework, or one PHP file per page). Together with `polidog/rosanna` it is a rewrite of [usePHP](https://github.com/polidog/usePHP); see [the migration steps](#migrating-from-usephp).
 
 - PHP 8.5+ with the `session` and `mbstring` extensions. `polidog/rosanna` requires `nikic/php-parser` for the PSX compiler. Rendering does not load it.
-- The current version is v0.0.1. Composer's `^0.0.1` matches 0.0.1 only, so `polidog/rosanna` and this package are released together.
+- There is no tagged release yet. With the default `minimum-stability`, `composer require polidog/rosanna-state` without a version fails, so install with `:dev-main`. `dev-main` follows the `main` branch, so an update can bring incompatible changes. The required `polidog/rosanna` and `polidog/rosanna-defer` come from their `^0.1` releases.
 
 ## Installation
 
 ```bash
-composer require polidog/rosanna-state
+composer require polidog/rosanna-state:dev-main
 vendor/bin/rosanna-state publish   # copies rosanna.js and rosanna-defer.js to public/
 ```
 
@@ -35,7 +35,7 @@ To publish on every `composer install`, add this to `composer.json`:
 
 Initializing the state layer takes two things and nothing else:
 
-1. `composer require polidog/rosanna-state`
+1. `composer require polidog/rosanna-state:dev-main`
 2. `new RosannaState()`
 
 There is no bootstrap call. Composer's `autoload.files` loads the hooks and connects the state layer to `polidog/rosanna`.
@@ -923,7 +923,7 @@ Others:
 
 Replacing `new` and `use` is not enough. An app that uses state goes through all of these steps:
 
-1. Run `composer require polidog/rosanna-state`.
+1. Run `composer require polidog/rosanna-state:dev-main`.
 2. Change `new Rosanna()` to `new RosannaState()`. `setSnapshotSecret()`, `actions()`, `scope()`, `restoreSnapshots()`, `handleDeferred()` and `renderClientScript()` now belong to `RosannaState`, as do `register()`, `render()` and `createElement()`.
 3. Change `use function Polidog\Rosanna\Runtime\useState;` and the like, in `.psx` and PHP, to `Polidog\Rosanna\State\`, following the table below. Change calls of `H::component()` to `State\component()`.
 4. Recompile with `vendor/bin/rosanna-state compile`. Generated code copies the `use` lines of the `.psx`, so every `.psx` with state needs recompiling. Only the shape of the component calls the compiler generates (`RenderContext::scope()->psx->render`) stays the same.
@@ -944,7 +944,7 @@ Replacing `new` and `use` is not enough. An app that uses state goes through all
 
 ```bash
 composer remove polidog/use-php
-composer require polidog/rosanna-state
+composer require polidog/rosanna-state:dev-main
 ```
 
 1. Replace `Polidog\UsePhp` and `UsePHP` following [the table above](#migrating-an-app-that-used-state-on-polidogrosanna): state goes to `Polidog\Rosanna\State\`, rendering to `Polidog\Rosanna\`, and `UsePHP` becomes `RosannaState`. A plain text replacement to `Polidog\Rosanna` is not enough. If you use `SimpleRouter` or `useRouter`, move to your host's router or per-page PHP files. Relayer users change the `use` of `useRouter` to Relayer's.

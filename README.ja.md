@@ -11,12 +11,12 @@
 ルーターも DI もイベントも持ちません。URL からページを選ぶのは host (フレームワークか、ページごとの PHP ファイル) の役割です。`polidog/rosanna` と合わせて [usePHP](https://github.com/polidog/usePHP) の作り直しで、移行は[下の手順](#usephp-からの移行)のとおりです。
 
 - PHP 8.5 以上と `session`、`mbstring` 拡張。`polidog/rosanna` は PSX のコンパイラのために `nikic/php-parser` を必要とします。描画では読み込みません。
-- 現在の版は v0.0.1 です。Composer の `^0.0.1` は 0.0.1 だけに一致するので、`polidog/rosanna` とこのパッケージは一緒にリリースします。
+- タグの付いたリリースはまだありません。既定の `minimum-stability` では、版を指定しない `composer require polidog/rosanna-state` は失敗するので、`:dev-main` を付けて入れます。`dev-main` は `main` ブランチを追うので、更新で互換性のない変更が入ることがあります。依存する `polidog/rosanna` と `polidog/rosanna-defer` は `^0.1` のリリースから入ります。
 
 ## インストール
 
 ```bash
-composer require polidog/rosanna-state
+composer require polidog/rosanna-state:dev-main
 vendor/bin/rosanna-state publish   # public/rosanna.js と rosanna-defer.js を配置する
 ```
 
@@ -35,7 +35,7 @@ vendor/bin/rosanna-state publish   # public/rosanna.js と rosanna-defer.js を�
 
 状態層の初期化は次の 2 つだけで、ほかには何も要りません。
 
-1. `composer require polidog/rosanna-state`
+1. `composer require polidog/rosanna-state:dev-main`
 2. `new RosannaState()`
 
 bootstrap の呼び出しはありません。Composer の `autoload.files` が hooks を読み込み、状態層を `polidog/rosanna` につなぎます。
@@ -923,7 +923,7 @@ session.cookie_samesite = Lax
 
 `new` と `use` の置換だけでは済みません。状態を使うアプリは次の手順をすべて行います。
 
-1. `composer require polidog/rosanna-state` を実行します。
+1. `composer require polidog/rosanna-state:dev-main` を実行します。
 2. `new Rosanna()` を `new RosannaState()` にします。`setSnapshotSecret()`、`actions()`、`scope()`、`restoreSnapshots()`、`handleDeferred()`、`renderClientScript()` は `RosannaState` のものになります。`register()`、`render()`、`createElement()` も同じです。
 3. `.psx` と PHP の `use function Polidog\Rosanna\Runtime\useState;` などを、下の表のとおり `Polidog\Rosanna\State\` に替えます。`H::component()` の呼び出しは `State\component()` に替えます。
 4. `vendor/bin/rosanna-state compile` で再コンパイルします。生成コードは `.psx` の `use` をそのまま写すので、状態付きの PSX は全部再コンパイルが要ります。変わらないのは、コンパイラが生成するコンポーネント呼び出し `RenderContext::scope()->psx->render` の形だけです。
@@ -944,7 +944,7 @@ session.cookie_samesite = Lax
 
 ```bash
 composer remove polidog/use-php
-composer require polidog/rosanna-state
+composer require polidog/rosanna-state:dev-main
 ```
 
 1. `Polidog\UsePhp` と `UsePHP` を[上の表](#polidogrosanna-の状態を使っていたアプリの移行)のとおりに置き換えます。状態層は `Polidog\Rosanna\State\`、描画は `Polidog\Rosanna\` で、`UsePHP` は `RosannaState` になります。`Polidog\Rosanna` への一括置換では足りません。`SimpleRouter` や `useRouter` を使っていれば、host のルーターかページごとの PHP ファイルに置き換えます。Relayer の利用者は `useRouter` の `use` を Relayer のものに直します。
