@@ -425,14 +425,40 @@
         }
     }
 
-    function morphTarget(next, cursor, byId) {
+    // 利用者が id を付けられないラッパーは、インスタンス ID を同じように使う
+    function morphKey(el) {
+        return el.id || el.getAttribute('data-rosanna');
+    }
+
+    /**
+     * 鍵のある子の対応を先に決める。同じ鍵が複数あれば出現順に取る。同じインスタンス ID は
+     * 同じ親に複数描画できる (RT-6.8) ので、2 つ目以降も作り直さない。対応のないライブの要素は残さない。
+     *
+     * @returns {Map<Element, Element>} 応答の要素 => ライブの要素
+     */
+    function pairKeyedChildren(liveParent, nextParent) {
+        const byKey = new Map();
+        for (const el of liveParent.children) {
+            const key = morphKey(el);
+            if (!key) continue;
+            if (!byKey.has(key)) byKey.set(key, []);
+            byKey.get(key).push(el);
+        }
+        const pairs = new Map();
+        for (const next of nextParent.children) {
+            const candidates = byKey.get(morphKey(next)) || [];
+            const index = candidates.findIndex((el) => canMorph(el, next));
+            if (index !== -1) pairs.set(next, candidates.splice(index, 1)[0]);
+        }
+        return pairs;
+    }
+
+    function morphTarget(next, cursor, pairs) {
         if (next.nodeType !== Node.ELEMENT_NODE) {
             return cursor && canMorph(cursor, next) ? cursor : null;
         }
-        if (next.id) {
-            const keyed = byId.get(next.id);
-            return keyed && canMorph(keyed, next) ? keyed : null;
-        }
+        if (morphKey(next)) return pairs.get(next) || null;
+        // canMorph が鍵のある要素を外すので、対応を決めた要素をここで取ることはない
         for (let node = cursor; node; node = node.nextSibling) {
             if (node.nodeType === Node.ELEMENT_NODE && canMorph(node, next)) return node;
         }
@@ -440,32 +466,36 @@
     }
 
     function morphChildren(liveParent, nextParent, submission) {
-        const byId = new Map();
-        for (const el of liveParent.children) {
-            if (el.id && !byId.has(el.id)) byId.set(el.id, el);
-        }
-        const wantedIds = new Set([...nextParent.children].map((el) => el.id).filter(Boolean));
-        const isWanted = (node) => node.nodeType === Node.ELEMENT_NODE && wantedIds.has(node.id);
+        const pairs = pairKeyedChildren(liveParent, nextParent);
+        const wanted = new Set(pairs.values());
 
+        // cursor より前は確定している。対応を決めた要素は必ず cursor 以降にある
         let cursor = liveParent.firstChild;
         for (const next of [...nextParent.childNodes]) {
-            const target = morphTarget(next, cursor, byId);
+            const target = morphTarget(next, cursor, pairs);
             if (!target) {
                 liveParent.insertBefore(next, cursor);
                 continue;
             }
-            // 移動するとフォーカスが外れるので、対象を動かさず手前のものを消す
-            while (cursor && cursor !== target && !isWanted(cursor)) {
+            while (cursor && cursor !== target && !wanted.has(cursor)) {
                 const dropped = cursor;
                 cursor = cursor.nextSibling;
                 dropped.remove();
             }
             if (cursor === target) {
                 cursor = cursor.nextSibling;
+            } else if (target.contains(document.activeElement)) {
+                // 移動するとフォーカスが外れ、IME の変換が切れるので、対象を動かさず手前のものを後ろへ回す
+                const after = target.nextSibling;
+                while (cursor !== target) {
+                    const moved = cursor;
+                    cursor = cursor.nextSibling;
+                    liveParent.insertBefore(moved, after);
+                }
+                cursor = target.nextSibling;
             } else {
                 liveParent.insertBefore(target, cursor);
             }
-            if (target.id) byId.delete(target.id);
             morphNode(target, next, submission);
         }
         while (cursor) {

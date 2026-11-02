@@ -853,7 +853,7 @@ PHP の `RosannaState::renderClientScript(string $src = '/rosanna.js', ?string $
 - **JS-4** redirect の応答に従って移動する。同一オリジンでなければ移動せず、警告してリロードする。再送の待ちがあれば移動しない (`usePHP/public/usephp.js:704-726`)。
 - **JS-5** **失敗を再送しない。** 2xx 以外か例外なら `form.submit()` に落とさず、キャンセルできて泡立つ `rosanna:submit-error` (`detail.response` か `detail.error`) を出す。キャンセルされなければ console に警告し、ラッパーに `data-rosanna-error` を付ける。次の送信で消す。**コミット `739714f`** (`usePHP/public/usephp.js:601-629`)。
 - **JS-6** 送信中のロック。自分、祖先、子孫のどれかが送信中なら次の送信を受けない。兄弟は待たない。`disabled` と `aria-busy` はロックに使わない。固定値の action は捨てる。別の行に当たりかねないため。`data-rosanna-with-value` のものは完了後に最新の値で 1 回送り直す。同じ引き金 (送信ボタンか、イベントの要素) の同じ値は連打として捨てる。フォームは共有されるので、フォームでは区別しない (`usePHP/public/usephp.js:570-599`, `:788-868`)。兄弟を待たない例外は JS-24 と JS-25。
-- **JS-7** 応答は `template` に解析して差分適用する。`<script>` は動かさない。欄の値は README 438-445 行の順で決める。hidden と `button` の `value` はサーバーに従う。フォーカスを戻す (`usePHP/public/usephp.js:1371-1394`)。
+- **JS-7** 応答は `template` に解析して差分適用する。`<script>` は動かさない。欄の値は README 438-445 行の順で決める。hidden と `button` の `value` はサーバーに従う。フォーカスを戻す (`usePHP/public/usephp.js:1371-1394`)。同じ親の直下の要素は `id` か `data-rosanna` を鍵に対応を取り、作り直さず動かす。要素が残るので、欄の値は動いても上の順で決まり、ロック (JS-6) も付いたままになる。同じ鍵が複数あれば出現順に対応させる (RT-6.8)。フォーカスを含む要素は動かさず、他の要素を動かす。変換が切れないようにするため。鍵のない要素は前から順に探す。
 
 ### バージョン照合
 
@@ -898,6 +898,7 @@ JS-16〜20 は [`polidog/rosanna-defer` の 01](https://github.com/polidog/rosan
 - JS-1: 共有フォームのボタンごとに正しい action が送られる。`button` 以外の要素でも送られる。
 - JS-6: 共有フォームの別のボタンが連打として捨てられない。
 - JS-7: 部分更新の後、`button` の `value` が新しい action になる。
+- JS-7: 親が子のコンポーネントの行を並べ替え、削除し、先頭に足しても、入力中の値とフォーカスが行に付いていく。フォーカスのある行は動かず、IME の変換が切れない。
 - JS-4: 別オリジンへの redirect で移動しない。
 - JS-5: 500 と例外で `form.submit()` しない。イベントをキャンセルすると属性が付かない。
 - JS-6: ダブルクリックで 1 回しか送らない。親と子が同時に送らない。兄弟は同時に送る。入力の欄は最後の値で 1 回送り直す。
