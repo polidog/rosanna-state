@@ -9,21 +9,11 @@
             "email": "polidogs@gmail.com"
         }
     ],
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "https://github.com/polidog/rosanna"
-        },
-        {
-            "type": "vcs",
-            "url": "https://github.com/polidog/rosanna-defer"
-        }
-    ],
     "require": {
         "php": ">=8.5",
         "ext-session": "*",
-        "polidog/rosanna": "0.0.x-dev",
-        "polidog/rosanna-defer": "0.0.x-dev"
+        "polidog/rosanna": "^0.1",
+        "polidog/rosanna-defer": "^0.1"
     },
     "require-dev": {
         "composer/composer": "^2.8",
