@@ -274,6 +274,74 @@ Which field goes into which hook is signed, but **the values are client input.**
 
 Use `useFormAction` on a form's `onSubmit`, or on `onChange` / `onInput` of an `input`, `select` or `textarea` with a `name` (its own field only).
 
+### Saving a form and clearing the input
+
+The usual "type a title, press Add, the row is saved, the input clears" takes a hidden field and one choice of `value`. [examples/11-todo](examples/11-todo/index.php) is the same thing as a runnable page.
+
+<!-- readme-test: form-save -->
+```php
+<?php
+// public/index.php
+declare(strict_types=1);
+
+use Polidog\Rosanna\Html\H;
+use Polidog\Rosanna\Runtime\Element;
+use Polidog\Rosanna\Runtime\RenderContext;
+use Polidog\Rosanna\State\Http\Request;
+use Polidog\Rosanna\State\RosannaState;
+
+use function Polidog\Rosanna\State\fc;
+use function Polidog\Rosanna\State\useEffect;
+use function Polidog\Rosanna\State\useFormAction;
+use function Polidog\Rosanna\State\useState;
+
+require __DIR__ . '/../vendor/autoload.php';
+
+$Todos = fc(function (): Element {
+    [$title, $setTitle] = useState('');
+    [$nonce, $setNonce] = useState('');
+
+    $invalid = $nonce !== '' && (trim($title) === '' || mb_strlen($title) > 40);
+
+    useEffect(function () use ($nonce, $title, $invalid): void {
+        if ($nonce !== '' && !$invalid) {
+            $_SESSION['todos'][] = trim($title); // stands in for $db->insert()
+        }
+    }, [$nonce]);
+
+    return H::div(children: [
+        H::form(onSubmit: useFormAction(['title' => $setTitle, 'nonce' => $setNonce]), children: [
+            H::input(type: 'hidden', name: 'nonce', value: bin2hex(random_bytes(8))),
+            H::input(name: 'title', required: true, value: $invalid ? $title : ''),
+            $invalid ? H::p(children: 'Enter 1 to 40 characters.') : null,
+            H::button(children: 'Add'),
+        ]),
+        H::ul(children: array_map(fn(string $todo): Element => H::li(children: $todo), $_SESSION['todos'] ?? [])),
+    ]);
+}, key: 'todos');
+
+$app = new RosannaState();
+$app->setSnapshotSecret((string) getenv('ROSANNA_SNAPSHOT_SECRET'));
+
+$request = Request::fromGlobals();
+$response = $app->actions()->handle($request, replay: fn(bool $partial): Element => $Todos());
+if ($response !== null) {
+    $response->send();
+
+    return;
+}
+
+echo RenderContext::run($app->scope($request), fn(): string => $app->renderElement($Todos()));
+```
+
+- **The deps are `[$nonce]`, not `[$title]`.** With `[$title]`, adding the same title twice in a row saves once, because the deps did not change. The hidden field sends a different value from each render, and `$nonce !== ''` skips the first view.
+- **The input renders `''`, not `$title`.** With `rosanna.js` the fields of a submitted form take the rendered value after the morph ([rosanna.js](#rosannajs)); without it the 303 leads to a new page. Text typed while the request is on its way is kept. An invalid value renders `$title`, so what was typed stays.
+- **The effect runs while rendering.** With `rosanna.js` that is during the POST, in its partial update; without it, during the GET after the 303. Reading the list after the effect shows the new row in that same response. The save waits for a render: if nothing renders the component, nothing is saved until something does. If the effect throws, its deps are not stored and the next render runs it again, so a failed save is retried by whoever renders next.
+- **Sending again does not save again, with Session storage.** With `rosanna.js` the second click of a double click with the same values is not sent; without it, the second POST has an old version. A reload after the 303 is a GET with unchanged deps. A form from another tab, or a saved POST sent again with its old nonce, has an old version and is not applied ([Submissions from a stale page](#submissions-from-a-stale-page)): with `rosanna.js` the latest rows are drawn and the typed text stays, so pressing Add again saves it. **Without JavaScript that text is lost**, because the 303 leads to a new page with an empty input.
+- **Use Session storage for this.** The comparison above only runs on the server for Session. With Snapshot or Memory, sending the same POST again is applied and **saves again**, and without JavaScript a Snapshot page's reload asks to do exactly that. A session handler that does not lock can also let concurrent requests through.
+- **The nonce is not a security token.** Its value is client input like the title, so validate in the effect, on the server (`required` only stops the browser sending an empty input, such as on a late second click). Anyone can open the page and submit a new form as often as they like, and each is a new save. Limits, ownership and "this may exist only once" belong to your database, for example a unique constraint.
+- An invalid title and its message stay in the session, so a reload or a later visit shows them again until the next submission. Array deps start a session on the first view ([Array deps in useEffect start a session](#array-deps-in-useeffect-start-a-session)).
+
 ## H and attributes
 
 `H` is part of `polidog/rosanna`; see [its README](https://github.com/polidog/rosanna#h-and-attributes) for `children` and attributes. `RosannaState` renders the same elements. What this package adds is the event props.

@@ -1,7 +1,7 @@
 // examples/ のサンプルを、README に書いたとおり router.php で動かして確かめる
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
-import { expect, test as base } from './support/fixtures';
+import { expect, holdPosts, test as base } from './support/fixtures';
 import { startPhpServer, type PhpServer } from './support/php-server';
 
 const ROOT = resolve(__dirname, '../..');
@@ -20,7 +20,7 @@ const test = base.extend<{}, { server: PhpServer }>({
 
 test('一覧からすべてのサンプルに行ける', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('li a')).toHaveCount(11);
+  await expect(page.locator('li a')).toHaveCount(12);
   await page.getByRole('link', { name: '01-counter' }).click();
   await expect(page.locator('h1')).toHaveText('Counter');
 });
@@ -150,8 +150,149 @@ for (const javaScriptEnabled of [true, false]) {
       await page.locator('#task-test').getByRole('button', { name: 'Undo' }).click();
       await expect(page.locator('#remaining')).toHaveText('1 left');
     });
+
+    test('11-todo: 同じタイトルを 2 回足すと 2 行になり、入力欄は空に戻り、リロードで増えない', async ({ page }) => {
+      await page.goto('/11-todo');
+      const title = page.getByLabel('Title');
+      const rows = page.locator('#todos li');
+      await expect(rows).toHaveCount(0);
+
+      await title.fill('milk');
+      await page.getByRole('button', { name: 'Add' }).click();
+      await expect(rows).toHaveText(['milk']);
+      await expect(title).toHaveValue('');
+
+      await title.fill('milk');
+      await page.getByRole('button', { name: 'Add' }).click();
+      await expect(rows).toHaveText(['milk', 'milk']);
+      await expect(title).toHaveValue('');
+
+      await page.reload();
+      await expect(rows).toHaveText(['milk', 'milk']);
+      await expect(title).toHaveValue('');
+    });
+
+    test('11-todo: 不正な入力は保存せず打ったものを残し、直すと足されて空に戻る', async ({ page }) => {
+      await page.goto('/11-todo');
+      const title = page.getByLabel('Title');
+      const rows = page.locator('#todos li');
+      const tooLong = 'x'.repeat(41);
+
+      await title.fill(tooLong);
+      await page.getByRole('button', { name: 'Add' }).click();
+      await expect(page.locator('.error')).toHaveText('Keep the title to 40 characters.');
+      await expect(title).toHaveValue(tooLong);
+      await expect(rows).toHaveCount(0);
+
+      await page.reload();
+      await expect(title).toHaveValue(tooLong);
+      await expect(rows).toHaveCount(0);
+
+      // required は空白だけの値を止めない。サーバーの検証が止める
+      await title.fill('   ');
+      await page.getByRole('button', { name: 'Add' }).click();
+      await expect(page.locator('.error')).toHaveText('Enter a title.');
+      await expect(rows).toHaveCount(0);
+
+      await title.fill('milk');
+      await page.getByRole('button', { name: 'Add' }).click();
+      await expect(rows).toHaveText(['milk']);
+      await expect(title).toHaveValue('');
+      await expect(page.locator('.error')).toHaveCount(0);
+    });
+
+    test('11-todo: ダブルクリックでも 1 行', async ({ page }) => {
+      await page.goto('/11-todo');
+      await page.getByLabel('Title').fill('milk');
+      await page.getByRole('button', { name: 'Add' }).dblclick();
+      await expect(page.locator('#todos li')).toHaveText(['milk']);
+      await page.waitForTimeout(300);
+      await page.reload();
+      await expect(page.locator('#todos li')).toHaveText(['milk']);
+      await expect(page.locator('.error')).toHaveCount(0);
+    });
+
+    test('11-todo: 送信済みのフォームを同じ内容で送り直しても増えない', async ({ page, baseURL }) => {
+      await page.goto('/11-todo');
+      const posted = page.waitForRequest((request) => request.method() === 'POST');
+      await page.getByLabel('Title').fill('milk');
+      await page.getByRole('button', { name: 'Add' }).click();
+      const sent = await posted;
+      await expect(page.locator('#todos li')).toHaveText(['milk']);
+
+      const replay = await page.request.post(sent.url(), {
+        headers: {
+          'content-type': sent.headers()['content-type'],
+          origin: baseURL as string,
+          ...(javaScriptEnabled ? { 'x-rosanna-partial': '1' } : {}),
+        },
+        data: sent.postDataBuffer() as Buffer,
+        maxRedirects: 0,
+      });
+      if (javaScriptEnabled) {
+        expect(replay.status()).toBe(200);
+        expect(replay.headers()['x-rosanna-stale']).toBe('1');
+      } else {
+        expect(replay.status()).toBe(303);
+      }
+
+      await page.reload();
+      await expect(page.locator('#todos li')).toHaveText(['milk']);
+    });
+
+    test('11-todo: 別のタブの古いフォームの送信は適用されず、最新が描かれる', async ({ page, context }) => {
+      await page.goto('/11-todo');
+      const other = await context.newPage();
+      await other.goto('/11-todo');
+
+      await page.getByLabel('Title').fill('from page');
+      await page.getByRole('button', { name: 'Add' }).click();
+      await expect(page.locator('#todos li')).toHaveText(['from page']);
+
+      await other.getByLabel('Title').fill('from other');
+      await other.getByRole('button', { name: 'Add' }).click();
+      await expect(other.locator('#todos li')).toHaveText(['from page']);
+      // rosanna.js は打ったものを残す。JavaScript なしは 303 の先の新しいページなので消える
+      await expect(other.getByLabel('Title')).toHaveValue(javaScriptEnabled ? 'from other' : '');
+
+      if (javaScriptEnabled) {
+        await other.getByRole('button', { name: 'Add' }).click();
+        await expect(other.locator('#todos li')).toHaveText(['from page', 'from other']);
+        await expect(other.getByLabel('Title')).toHaveValue('');
+      }
+    });
   });
 }
+
+test('11-todo: 送信中に打った文字は消えない', async ({ page }) => {
+  await page.goto('/11-todo');
+  const title = page.getByLabel('Title');
+  await title.fill('milk');
+  const hold = await holdPosts(page);
+  await page.getByRole('button', { name: 'Add' }).click();
+  await hold.held();
+  await title.fill('eggs');
+  hold.release();
+  await expect(page.locator('#todos li')).toHaveText(['milk']);
+  await expect(title).toHaveValue('eggs');
+});
+
+test.describe('JavaScript なし', () => {
+  test.use({ javaScriptEnabled: false });
+
+  test('11-todo: 戻っても増えない。戻った先のフォームは新しく取得したものなので、次の送信は足される', async ({ page }) => {
+    await page.goto('/11-todo');
+    await page.getByLabel('Title').fill('milk');
+    await page.getByRole('button', { name: 'Add' }).click();
+    await expect(page.locator('#todos li')).toHaveText(['milk']);
+
+    await page.goBack();
+    await expect(page.locator('#todos li')).toHaveText(['milk']);
+    await page.getByLabel('Title').fill('eggs');
+    await page.getByRole('button', { name: 'Add' }).click();
+    await expect(page.locator('#todos li')).toHaveText(['milk', 'eggs']);
+  });
+});
 
 test('05-storage: 保存先ごとにリロード後の残り方が違う', async ({ page }) => {
   await page.goto('/05-storage');

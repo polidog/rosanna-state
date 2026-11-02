@@ -33,6 +33,7 @@ http://localhost:8000 を開くと一覧が出ます。
 | [08-guard](08-guard/index.php) | host がページを保護する。自前のフォームと共存する | `pagePath`、`csrf()` | 動く |
 | [09-defer](09-defer/index.php) | 共通の本体と訪問者ごとの断片を分ける | `Defer`、`H::defer`、`handleDeferred` | fallback だけが見える |
 | [10-psx](10-psx/) | タグで書く。コンポーネントを入れ子にする | `.psx`、`rosanna-state compile`、`loadComponentManifest` | 動く |
+| [11-todo](11-todo/index.php) | フォームを保存する。同じタイトルを 2 回足すと 2 行になり、入力欄は空に戻り、不正な値は残る | `useFormAction`、`useEffect`、hidden の nonce | 動く |
 
 ## 読むときの注意
 
@@ -40,7 +41,8 @@ http://localhost:8000 を開くと一覧が出ます。
 - **サンプルの間でセッションを共有します。** 同じオリジンで動かしているからです。状態が混ざらないよう、`fc()` の key をサンプルごとに変えています。
 - **[router.php](router.php) はサンプルを並べるためのものです。** 自分のアプリでは host のルーターかページごとの PHP ファイルが同じ役割を持ちます。`/rosanna.js` の配信も `vendor/bin/rosanna-state publish` で `public/` に置く形にしてください。
 - **08-guard のサインインはパスワードを確かめません。** 保護の順番を見せるためのものです。
-- **フォームの値を配列に追加する hook はありません。** `useFormAction` は欄の値を hook に上書きするだけです。入力した文字列を一覧に足す ToDo のような画面は、host の普通のフォームでデータベースに書き、描画のときに読み出してください。行ごとの操作は 03-cart の形で書けます。
+- **フォームの値を配列に追加する hook はありません。** `useFormAction` は欄の値を hook に上書きするだけです。入力した文字列を一覧に足す ToDo のような画面は、11-todo のように `useEffect` で保存して描画のときに読み出すか ([フォームを保存して入力欄を空に戻す](../README.ja.md#フォームを保存して入力欄を空に戻す))、host の普通のフォームでデータベースに書いてください。行ごとの操作は 03-cart の形で書けます。
+- **11-todo は行をデータベースの代わりに `$_SESSION` に置きます。** 一覧は訪問者ごとに分かれます。
 
 worker モードは FrankenPHP などが要るので、ここには入れていません。[README の worker モード](../README.ja.md#worker-モード)を見てください。
 
