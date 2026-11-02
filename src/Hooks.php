@@ -137,10 +137,12 @@ function component(callable $component, array $props = []): FunctionComponentCal
  * Action と Closure だけを受ける。is_callable() にすると、イベントの prop に流れた文字列が
  * 関数名として実行されるので、文字列、配列、呼び出し可能オブジェクトは実行せずに拒否する (RT-2.6)。
  *
+ * クロージャが Action を返さなければ例外にする。黙って動かないボタンを描くと、描画のたびに走る副作用に気づけない (01-runtime.md の RT-2.6)。
+ *
  * @internal
  * @throws \InvalidArgumentException
  */
-function resolveEventAction(string $event, mixed $value): ?Action
+function resolveEventAction(string $event, mixed $value): Action
 {
     if ($value instanceof Action) {
         return $value;
@@ -159,8 +161,19 @@ function resolveEventAction(string $event, mixed $value): ?Action
     }
 
     $action = $value();
+    if (!$action instanceof Action) {
+        throw new \InvalidArgumentException(sprintf(
+            '%1$s closure returned %2$s instead of an Action. It ran during rendering, not on the event, '
+            . 'so its side effects have already run and would run on every render. '
+            . 'Return an Action, such as the result of a useState() setter, and put side effects in useEffect(), '
+            . 'depending on the state that setter changes. To have no action, write the condition at the prop: '
+            . '%1$s: $can ? fn() => $set(1) : null.',
+            $event,
+            get_debug_type($action),
+        ));
+    }
 
-    return $action instanceof Action ? $action : null;
+    return $action;
 }
 
 /** RT-8.1 */

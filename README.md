@@ -123,6 +123,12 @@ Each press sends a POST that `handle()` turns into a state update.
 
 `$setCount($count + 1)` does not mean "add". It is an action meaning "set it to this value", fixed at render time. The closure runs while rendering, not on click.
 
+**An event closure must return an `Action`.** Anything else, including a closure with no `return`, throws `InvalidArgumentException` while rendering. Code in the closure does not wait for the click: `onClick: function () use ($db) { $db->delete(1); }` deletes when the page is rendered, and the exception comes after it has run once.
+
+- Return the result of a `useState` setter, and put side effects in `useEffect`, depending on the state that setter changes.
+- To leave an element without an action, write the condition at the prop, not inside the closure: `onClick: $can ? fn() => $set(1) : null`. PHP cannot tell a closure returning `null` from one with no `return`, so `fn() => $can ? $set(1) : null` throws when `$can` is false.
+- A closure with a side effect that also returns an `Action` cannot be detected. The side effect runs on every render, without an error.
+
 Runnable samples are in [examples/](examples/README.md).
 
 ### Instance keys
@@ -298,7 +304,7 @@ echo new RosannaState()->renderElement(H::div(className: 'card', children: [
 ]));
 ```
 
-- The events are `onClick`, `onChange`, `onInput` and `onSubmit`. `onFocus`, `onBlur`, `onLoad` and `onError` throw. Values are an `Action` or a closure without required parameters only. Function-name strings are refused without being run.
+- The events are `onClick`, `onChange`, `onInput` and `onSubmit`. `onFocus`, `onBlur`, `onLoad` and `onError` throw. Values are an `Action` or a closure without required parameters that returns an `Action` only. Function-name strings are refused without being run.
 
 | Event | Without JavaScript |
 |---|---|

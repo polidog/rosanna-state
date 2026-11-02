@@ -123,6 +123,12 @@ ROSANNA_SNAPSHOT_SECRET=$(php -r 'echo bin2hex(random_bytes(32));') php -S local
 
 `$setCount($count + 1)` は「足す」ではなく、描画の時点で確定した値を「その値にする」action です。クロージャはクリック時でなく描画時に実行されます。
 
+**イベントのクロージャは `Action` を返してください。** `return` のないクロージャを含め、それ以外は描画中に `InvalidArgumentException` になります。クロージャの中のコードはクリックを待ちません。`onClick: function () use ($db) { $db->delete(1); }` はページを描画した時点で削除し、例外はそれを 1 回実行した後に出ます。
+
+- `useState` の setter の結果を返し、副作用はその setter が変える状態に依存させて `useEffect` に書きます。
+- 要素に action を付けないときは、クロージャの中でなく prop に条件を書きます: `onClick: $can ? fn() => $set(1) : null`。PHP は `null` を返すクロージャと `return` のないクロージャを区別できないので、`fn() => $can ? $set(1) : null` は `$can` が false のとき例外になります。
+- 副作用を持ちつつ `Action` を返すクロージャは検出できません。描画のたびに副作用が起き、エラーにもなりません。
+
 動かせるサンプルは [examples/](examples/README.ja.md) にあります。
 
 ### インスタンスの key
@@ -298,7 +304,7 @@ echo new RosannaState()->renderElement(H::div(className: 'card', children: [
 ]));
 ```
 
-- イベントは `onClick`、`onChange`、`onInput`、`onSubmit` の 4 つです。`onFocus`、`onBlur`、`onLoad`、`onError` は例外です。値は `Action` か引数なしのクロージャだけで、関数名の文字列は実行せず拒否します。
+- イベントは `onClick`、`onChange`、`onInput`、`onSubmit` の 4 つです。`onFocus`、`onBlur`、`onLoad`、`onError` は例外です。値は `Action` か、`Action` を返す引数なしのクロージャだけで、関数名の文字列は実行せず拒否します。
 
 | イベント | JavaScript なし |
 |---|---|
