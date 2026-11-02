@@ -762,12 +762,13 @@ test.describe('通知の届かないフォーム (JS-26)', () => {
     expect(gets.fetches()).toBe(1);
   });
 
-  test('トークンのあるフォームの本物の 403 は rosanna:submit-error で、更新が走らない', async ({ page }) => {
+  test('トークンのあるフォームの 403 も 1 回だけ更新で受け、フォームが新しくなる', async ({ page }) => {
     await page.goto('/widget/session');
     const done = refreshed(page, '/widget/session');
     await own(page, 'w', '.inc').click();
     await done;
     await expect(token(page)).toHaveValue(/.+/);
+    const rendered = await token(page).inputValue();
 
     await listen(page, 'rosanna:stale');
     await listen(page, 'rosanna:submit-error');
@@ -777,12 +778,221 @@ test.describe('通知の届かないフォーム (JS-26)', () => {
       el.value = 'tampered';
     }));
     await own(page, 'w', '.inc').click();
-    await expect(wrapper(page, 'w')).toHaveAttribute('data-rosanna-error', '');
-    expect(await heard(page, 'rosanna:submit-error')).toEqual([expect.objectContaining({ status: 403 })]);
-    expect(await heard(page, 'rosanna:stale')).toEqual([]);
+    await expect(token(page)).toHaveValue(rendered);
     await idle(page);
-    expect(gets.total()).toBe(0);
+    expect(await heard(page, 'rosanna:stale')).toEqual([expect.objectContaining({ origin: 'server', status: 403 })]);
+    expect(await heard(page, 'rosanna:submit-error')).toEqual([]);
+    expect(gets.fetches()).toBe(1);
     await expect(count(page, 'w')).toHaveText('1');
+    await expect(own(page, 'w', '.own .name-field')).toHaveValue('kept');
+  });
+});
+
+test.describe('セッションが変わった後の古いフォーム (JS-26)', () => {
+  /** 別のタブで /auth/{action} を開く。同じ Cookie を使うのでこのタブのセッションも変わる */
+  async function inOtherTab(context: import('@playwright/test').BrowserContext, action: string) {
+    const tab = await context.newPage();
+    await tab.goto(`/auth/${action}`);
+    await tab.close();
+  }
+
+  /** セッションのあるタブを開く */
+  async function withSession(page: Page, path = '/widget/session', key = 'w') {
+    await page.goto(path);
+    const done = refreshed(page, path);
+    await own(page, key, '.inc').click();
+    await done;
+    await expect(count(page, key)).toHaveText('1');
+  }
+
+  test('別のタブのログインの後、最初のクリックは拒否されて更新し、2 回目が通る', async ({ page, context, posts }) => {
+    await withSession(page);
+    await inOtherTab(context, 'login');
+    await listen(page, 'rosanna:stale');
+    await listen(page, 'rosanna:submit-error');
+    const gets = countPageGets(page, '/widget/session');
+    posts.clear();
+
+    const rejected = page.waitForResponse((r) => r.request().method() === 'POST');
+    await own(page, 'w', '.inc').click();
+    expect((await rejected).status()).toBe(400);
+    await expect.poll(() => heard(page, 'rosanna:stale')).toEqual([expect.objectContaining({ origin: 'server', status: 400 })]);
+    await idle(page);
+    expect(await heard(page, 'rosanna:submit-error')).toEqual([]);
+    await expect(wrapper(page, 'w')).not.toHaveAttribute('data-rosanna-error');
+    expect(posts.count()).toBe(1);
+    expect(gets.fetches()).toBe(1);
+    expect(gets.reloads()).toBe(0);
+    await expect(count(page, 'w')).toHaveText('1');
+
+    await own(page, 'w', '.inc').click();
+    await expect(count(page, 'w')).toHaveText('2');
+    expect(posts.count()).toBe(2);
+    expect(gets.total()).toBe(1);
+    await page.reload();
+    await expect(count(page, 'w')).toHaveText('2');
+  });
+
+  test('入力中の欄が残り、押し直すと同じ値が届く', async ({ page, context }) => {
+    await withSession(page);
+    await inOtherTab(context, 'login');
+    await own(page, 'w', '.free').fill('typed');
+    await own(page, 'w', '.own .name-field').fill('draft');
+    await listen(page, 'rosanna:stale');
+
+    await own(page, 'w', '.own .save').click();
+    await expect.poll(async () => (await heard(page, 'rosanna:stale')).length).toBe(1);
+    await idle(page);
+    await expect(own(page, 'w', '.own .name-field')).toHaveValue('draft');
+    await expect(own(page, 'w', '.free')).toHaveValue('typed');
+    await expect(own(page, 'w', '.shown-name')).toHaveText('');
+
+    await own(page, 'w', '.own .save').click();
+    await expect(own(page, 'w', '.shown-name')).toHaveText('draft');
+    await expect(own(page, 'w', '.free')).toHaveValue('typed');
+  });
+
+  test('Snapshot の状態はログインをまたいで残り、次のクリックが通る', async ({ page, context, posts }) => {
+    await withSession(page, '/mixed', 's');
+    await own(page, 'snap', '.inc').click();
+    await expect(count(page, 'snap')).toHaveText('1');
+    await inOtherTab(context, 'login');
+    await listen(page, 'rosanna:submit-error');
+    posts.clear();
+
+    await own(page, 'snap', '.inc').click();
+    await expect.poll(async () => (await posts.list()).map((p) => p.type)).toEqual(['setState', 'restore']);
+    await idle(page);
+    await expect(count(page, 'snap')).toHaveText('1');
+    expect(await heard(page, 'rosanna:submit-error')).toEqual([]);
+
+    await own(page, 'snap', '.inc').click();
+    await expect(count(page, 'snap')).toHaveText('2');
+  });
+
+  test('ログアウト (Cookie が残る): 403 で更新し、2 回目が通る', async ({ page, context }) => {
+    await withSession(page);
+    await inOtherTab(context, 'logout');
+    await listen(page, 'rosanna:stale');
+    await listen(page, 'rosanna:submit-error');
+
+    await own(page, 'w', '.inc').click();
+    await expect.poll(() => heard(page, 'rosanna:stale')).toEqual([expect.objectContaining({ origin: 'server', status: 403 })]);
+    await idle(page);
+    expect(await heard(page, 'rosanna:submit-error')).toEqual([]);
+    await expect(count(page, 'w')).toHaveText('0');
+
+    await own(page, 'w', '.inc').click();
+    await expect(count(page, 'w')).toHaveText('1');
+  });
+
+  test('ログアウト (Cookie も消える): 取り直したページにトークンがなくても更新を当て、2 回目が通る', async ({ page, context }) => {
+    await withSession(page);
+    await inOtherTab(context, 'logout-clear');
+    await listen(page, 'rosanna:stale');
+    await listen(page, 'rosanna:submit-error');
+
+    await own(page, 'w', '.inc').click();
+    await expect.poll(() => heard(page, 'rosanna:stale')).toEqual([expect.objectContaining({ origin: 'server', status: 400 })]);
+    await idle(page);
+    expect(await heard(page, 'rosanna:submit-error')).toEqual([]);
+    await expect(count(page, 'w')).toHaveText('0');
+
+    await own(page, 'w', '.inc').click();
+    await expect(count(page, 'w')).toHaveText('1');
+    await expect(wrapper(page, 'w')).not.toHaveAttribute('data-rosanna-error');
+  });
+
+  test('ログインで利用者が変わると、ラッパーの中身は差分で新しい利用者になる', async ({ page, context }) => {
+    await withSession(page, '/members', 'hello');
+    await expect(own(page, 'hello', '.user')).toHaveText('anonymous');
+    await inOtherTab(context, 'login');
+
+    await own(page, 'hello', '.inc').click();
+    await expect(own(page, 'hello', '.user')).toHaveText('alice');
+    await expect(count(page, 'hello')).toHaveText('1');
+    await own(page, 'hello', '.inc').click();
+    await expect(count(page, 'hello')).toHaveText('2');
+  });
+
+  test('送信したインスタンスが取り直したページになければ、再読み込みに落とす', async ({ page, context }) => {
+    await withSession(page, '/members', 'guest');
+    await inOtherTab(context, 'login');
+    const gets = countPageGets(page, '/members');
+
+    await own(page, 'guest', '.inc').click();
+    await expect.poll(() => gets.reloads()).toBe(1);
+    await expect(own(page, 'hello', '.user')).toHaveText('alice');
+    await expect(wrapper(page, 'guest')).toHaveCount(0);
+    expect(gets.reloads()).toBe(1);
+  });
+
+  test('host がページごと 403 にするなら、再読み込みでその応答を見せる', async ({ page, context }) => {
+    await page.goto('/auth/login');
+    await page.goto('/guarded');
+    await inOtherTab(context, 'logout');
+    const gets = countPageGets(page, '/guarded');
+
+    await own(page, 'w', '.inc').click();
+    await expect(page.locator('#denied')).toHaveText('denied');
+    expect(gets.reloads()).toBe(1);
+  });
+
+  test('ずっと失敗するなら更新は 1 回で、ループせず rosanna:submit-error に落ちる', async ({ page, context, posts }) => {
+    await withSession(page);
+    await inOtherTab(context, 'login');
+    await page.route('**/widget/session', (route) => (route.request().method() === 'POST'
+      ? route.fulfill({ status: 400, contentType: 'text/plain', body: 'Invalid action signature' })
+      : route.fallback()));
+    await listen(page, 'rosanna:stale');
+    await listen(page, 'rosanna:submit-error');
+    const gets = countPageGets(page, '/widget/session');
+    posts.clear();
+
+    await own(page, 'w', '.inc').click();
+    await expect.poll(async () => (await heard(page, 'rosanna:stale')).length).toBe(1);
+    await idle(page);
+    expect(await heard(page, 'rosanna:submit-error')).toEqual([]);
+
+    await own(page, 'w', '.inc').click();
+    await expect(wrapper(page, 'w')).toHaveAttribute('data-rosanna-error', '');
+    expect(await heard(page, 'rosanna:submit-error')).toEqual([expect.objectContaining({ status: 400 })]);
+
+    await own(page, 'w', '.inc').click();
+    await expect.poll(async () => (await heard(page, 'rosanna:submit-error')).length).toBe(2);
+    await idle(page);
+    expect(posts.count()).toBe(3);
+    expect(gets.fetches()).toBe(1);
+    expect(gets.reloads()).toBe(0);
+    expect((await heard(page, 'rosanna:stale')).length).toBe(1);
+  });
+
+  test('成功すると 1 回の制限が戻り、次のセッションの変更からも回復する', async ({ page, context }) => {
+    await withSession(page);
+    await listen(page, 'rosanna:stale');
+    await listen(page, 'rosanna:submit-error');
+    for (const [round, expected] of [[1, '2'], [2, '3']] as const) {
+      await inOtherTab(context, 'login');
+      await own(page, 'w', '.inc').click();
+      await expect.poll(async () => (await heard(page, 'rosanna:stale')).length).toBe(round);
+      await idle(page);
+      await own(page, 'w', '.inc').click();
+      await expect(count(page, 'w')).toHaveText(expected);
+    }
+    expect(await heard(page, 'rosanna:submit-error')).toEqual([]);
+  });
+
+  test('SN-18 の 400 は適用の後に来るが、更新は最新を見せるだけで再送しない', async ({ page, context, posts, baseURL }) => {
+    await withSession(page, '/moved-child', 'p');
+    await context.addCookies([{ name: 'fixture_moved', value: '1', url: baseURL as string }]);
+    posts.clear();
+
+    const rejected = page.waitForResponse((r) => r.request().method() === 'POST');
+    await own(page, 'p', '.inc').click();
+    expect((await rejected).status()).toBe(400);
+    await expect(count(page, 'p')).toHaveText('2');
+    await idle(page);
+    expect(posts.count()).toBe(1);
   });
 });
 

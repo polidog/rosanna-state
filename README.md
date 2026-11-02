@@ -840,11 +840,17 @@ $response->send();
 - Give rows of reordered or deleted lists an `id`. Without one they are matched by position. A row that is a component needs no `id`, because its wrapper is matched by `data-rosanna`. Pass each row a `key` prop; without one the ID comes from the order of appearance, so values stay with the position rather than the row.
 - A component and its ancestors and descendants update in turn; siblings do not wait. A fixed-value action during a submission is dropped. A `useFormAction` action is resent with the latest value afterwards.
 - **A failed partial update is not resent,** because it may already be applied. A cancelable `rosanna:submit-error` (`detail.response` or `detail.error`) fires; if not cancelled, the wrapper gets `data-rosanna-error`.
+- A form's token and signatures are tied to the session, so a login (`session_regenerate_id()`) or logout in another tab makes the forms of a tab left open get rejected with a 403 or 400. On that rejection `rosanna.js` first fetches the page once with a GET, morphs each wrapper and fires `rosanna:stale`, before any `rosanna:submit-error`. Input is kept, and pressing again works.
+  - A rejection that keeps failing refreshes only once, not again until the next success, and fires `rosanna:submit-error` from the second time on. So a 403 from the host or a 400 for bad input does not fire this event the first time.
+  - Nothing outside wrappers changes. A page that draws the user's name outside a wrapper shows the old one until it is reloaded. The page reloads when the refreshed page does not have the submitted instance, or when its GET is not 2xx or is redirected.
+  - With `disableCsrfProtection()` a session change cannot be told apart, so the refresh does not fix it and `rosanna:submit-error` fires. Reload as in the example below.
+  - Without JavaScript this recovery does not run. The plain 400 or 403 response is shown, and the page has to be opened again.
 
 ```js
 document.addEventListener('rosanna:submit-error', (e) => {
     e.preventDefault();
-    if (e.detail.response?.status === 403) location.reload(); // expired CSRF token
+    // a rejection the refresh did not fix: a session change or an expired CSRF token
+    if ([400, 403].includes(e.detail.response?.status)) location.reload();
 });
 ```
 
@@ -918,7 +924,7 @@ Others:
 - `component()` (`Polidog\Rosanna\State\component()`) renders no wrapper and always uses Session, so its actions reload the page instead of updating in place.
 - PSX output depends on absolute paths ([PSX](#psx)).
 - Attribute spread (`<div {...$a} />`) and namespaced attribute names are not available in PSX.
-- With a secret key, the first action of a visitor without a cookie starts the session. Other forms that were not redrawn have no CSRF token, so after that response (`X-Rosanna-Session-Started: 1`) `rosanna.js` fetches the page again with a GET and morphs each wrapper to get new forms. Fields being edited, focus and Snapshot state are kept. If the page cannot be fetched, it reloads. Clicks in the meantime follow the in-flight lock: fixed values are dropped and `data-rosanna-with-value` is resent with the latest value. For the same reason, Session actions from forms without a token are not sent at the same time. A stale form in another tab does the same refresh once after a 403 or 400 and fires `rosanna:stale`. That action was not applied, so pressing again works. What remains:
+- With a secret key, the first action of a visitor without a cookie starts the session. Other forms that were not redrawn have no CSRF token, so after that response (`X-Rosanna-Session-Started: 1`) `rosanna.js` fetches the page again with a GET and morphs each wrapper to get new forms. Fields being edited, focus and Snapshot state are kept. If the page cannot be fetched, it reloads. Clicks in the meantime follow the in-flight lock: fixed values are dropped and `data-rosanna-with-value` is resent with the latest value. For the same reason, Session actions from forms without a token are not sent at the same time. A stale form in another tab does the same refresh once after a 403 or 400 and fires `rosanna:stale` ([rosanna.js](#rosannajs) covers logins and logouts). That action was not applied, so pressing again works. What remains:
   - The refresh costs one more GET, plus a GET per resolved defer holding a form and a `restore` POST per Snapshot it puts back.
   - Forms outside wrappers that the host built in JS are not renewed. Submitting one gets a 403, so reload on `rosanna:submit-error`.
   - Without JavaScript, the plain POST's answer renews the forms of that tab, but another open tab gets a 403 and needs a reload.
