@@ -291,6 +291,7 @@ namespace Polidog\Rosanna\State\Snapshot;
 final class SnapshotUrl
 {
     public const PARAM = '_rosanna_snapshot';
+    public const MAX_URL_BYTES = 8000;
 
     /** @throws \InvalidArgumentException 同一オリジンのパスでないとき */
     public static function with(string $url, Snapshot $snapshot, SnapshotSerializer $serializer): string;
@@ -306,6 +307,10 @@ final class SnapshotUrl
 - **SN-21** 他のクエリはバイト単位で保つ。`parse_str()` で組み立て直さない。`%5Frosanna_snapshot`、`_rosanna_snapshot[]` も `_rosanna_snapshot` として
   取り除く (`usePHP/src/Router/SimpleRouter.php:265-295`)。
 - **SN-22** `extract()` は配列の `?_rosanna_snapshot[]=1` を `null` にする (`usePHP/src/Router/SimpleRouter.php:297-303`)。
+- **SN-33** Persistent の redirect の URL (パスとクエリ) が `MAX_URL_BYTES` (8000 バイト) を超えるなら、スナップショットを入れず、入れない場合の行き先に 303 で戻してログで警告する。
+  nginx の `large_client_header_buffers` (既定 8k) と Apache の `LimitRequestLine` (8190) はメソッドと HTTP のバージョンを含むリクエスト行に効き、超えると利用者は 414 のページから戻れない。パスもクエリもクライアントが選べるので例外にしない。
+  その action の結果だけでなく、URL で運んでいた前の状態も失い、ページは初期状態に戻る。既存のクエリだけで超えていても、行き先は変えず切り詰めない。`RedirectTarget` が取り除いた古い `_rosanna_snapshot` は数えない。SN-20 で `/` に戻す経路も同じ扱いで、行き先は `/` になる。
+  `with()` は長さで結果を変えない。公開の API で、失敗は同一オリジンでないときだけという約束を保つ。上限の判断は応答を決める `ActionHandler` に置く。実際の nginx と Apache での 414 は確かめていない (値は公式の既定値から決めた)。上限を下げるプロキシの後ろでは Session を使う。
 
 ### 2.5 置き場所の指定
 

@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace Polidog\Rosanna\State\Tests\Integration;
 
+use Polidog\Rosanna\State\Snapshot\SnapshotUrl;
 use Polidog\Rosanna\State\Tests\Protocol\Support\ActionRequests;
 
 /**
- * 2.5 節の置き場所を実際の HTTP で確かめる (SN-23、SN-24、SN-26〜SN-28)。
+ * 2.5 節の置き場所を実際の HTTP で確かめる (SN-23、SN-24、SN-26〜SN-28、SN-33)。
  */
 final class SnapshotBehaviorFlowTest extends AppServerTestCase
 {
@@ -39,6 +40,54 @@ final class SnapshotBehaviorFlowTest extends AppServerTestCase
         $secondLocation = (string) self::header($second, 'Location');
         self::assertSame(1, substr_count($secondLocation, '_rosanna_snapshot='));
         self::assertStringContainsString('count=2', self::followWithCookie($secondLocation, null)['body']);
+    }
+
+    /**
+     * SN-33 クエリの長さで、redirect の URL がちょうど $bytes になるように作る。
+     * スナップショットの長さは行き先に依らないので、1 回目の応答から求める。
+     */
+    private static function targetFor(int $bytes): string
+    {
+        $probe = '/snapshot/persistent?pad=';
+        $location = (string) self::header(self::postForm($probe, self::press(self::http($probe)['body'])), 'Location');
+        $pad = $bytes - strlen($location);
+        self::assertGreaterThan(0, $pad);
+
+        return $probe . str_repeat('p', $pad);
+    }
+
+    public function testSN33AUrlOfExactlyTheLimitKeepsTheSnapshot(): void
+    {
+        $target = self::targetFor(SnapshotUrl::MAX_URL_BYTES);
+
+        $post = self::postForm($target, self::press(self::http($target)['body']));
+        $location = (string) self::header($post, 'Location');
+
+        self::assertSame(303, $post['status']);
+        self::assertSame(SnapshotUrl::MAX_URL_BYTES, strlen($location));
+        self::assertStringStartsWith($target . '&_rosanna_snapshot=', $location);
+        self::assertStringContainsString('count=1', self::followWithCookie($location, null)['body']);
+        self::assertStringNotContainsString('Snapshot dropped', self::serverLog());
+    }
+
+    public function testSN33AUrlOneByteOverTheLimitDropsTheSnapshotAndLogs(): void
+    {
+        $target = self::targetFor(SnapshotUrl::MAX_URL_BYTES + 1);
+
+        $post = self::postForm($target, self::press(self::http($target)['body']));
+
+        self::assertSame(303, $post['status']);
+        self::assertSame($target, self::header($post, 'Location'));
+        self::assertStringContainsString('[Rosanna] Snapshot dropped (behavior=Persistent)', self::serverLog());
+        self::assertStringContainsString('SnapshotCounter#0', self::serverLog());
+        self::assertStringContainsString('SnapshotBehavior::Session', self::serverLog());
+
+        // ページは初期状態で開け、次の action も動く
+        $next = self::followWithCookie($target, null);
+        self::assertSame(200, $next['status']);
+        self::assertStringContainsString('count=0', $next['body']);
+        $shorter = self::postForm('/snapshot/persistent', self::press($next['body']));
+        self::assertStringContainsString('count=1', self::followWithCookie((string) self::header($shorter, 'Location'), null)['body']);
     }
 
     public function testSN27BrokenPersistentSnapshotRendersThePageWithoutState(): void

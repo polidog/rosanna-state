@@ -493,6 +493,7 @@ echo $app->render(Cart::class);
 | `SnapshotBehavior::Session` | `$_SESSION` | The same; bound to the session ID |
 
 - Persistent carries one instance only. An action on another instance replaces it, with a warning in the log. Use Session for pages with several instances.
+- A Persistent URL holds up to 8000 bytes of path and query. Beyond that, the redirect goes to the same URL without the snapshot, with a warning in the log. The page opens, but its state goes back to the initial one, not the previous one. Use Session for pages whose state can grow.
 - Session holds up to 64 instances; beyond that the oldest goes back to its initial state. It does not read `_rosanna_snapshot` from the URL.
 - Defer endpoints do not read the session slot.
 
@@ -921,6 +922,7 @@ Others:
 
 - Double clicks and updates from several tabs do not add up; they are redrawn ([Submissions from a stale page](#submissions-from-a-stale-page)).
 - Only PHP's native session is supported.
+- A Persistent snapshot travels in the URL, so it is not carried when the URL would exceed 8000 bytes ([Keeping snapshots outside the page](#keeping-snapshots-outside-the-page)). The figure follows the defaults of nginx (`large_client_header_buffers`, 8k) and Apache (`LimitRequestLine`, 8190). Behind a proxy with a shorter limit the redirect still gets a 414, so use Session there.
 - `component()` (`Polidog\Rosanna\State\component()`) renders no wrapper and always uses Session, so its actions reload the page instead of updating in place.
 - PSX output depends on absolute paths ([PSX](#psx)).
 - Attribute spread (`<div {...$a} />`) and namespaced attribute names are not available in PSX.

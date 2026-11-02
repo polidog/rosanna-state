@@ -21,6 +21,7 @@ use Polidog\Rosanna\State\Protocol\RedirectTarget;
 use Polidog\Rosanna\State\RenderPass;
 use Polidog\Rosanna\State\RosannaState;
 use Polidog\Rosanna\State\Snapshot\SnapshotBehavior;
+use Polidog\Rosanna\State\Snapshot\SnapshotUrl;
 use Polidog\Rosanna\State\StateDiff;
 use Polidog\Rosanna\State\Storage\StorageType;
 use Polidog\Rosanna\State\Tests\Protocol\Fixtures\DeferredPanel;
@@ -1927,6 +1928,110 @@ final class ActionHandlerTest extends TestCase
 
         self::assertNotNull($response);
         self::assertStringStartsWith('/item:42?keep=1&_rosanna_snapshot=', $response->headers['Location']);
+    }
+
+    /** 署名しても 8000 バイトを超える状態を持つインスタンス */
+    private static function oversized(string $key = 'big'): FunctionComponent
+    {
+        return fc(static function (): Element {
+            [$text, $set] = useState(str_repeat('x', SnapshotUrl::MAX_URL_BYTES));
+
+            return H::div(children: [H::span(children: 'length=' . strlen($text)), H::button(onClick: static fn() => $set($text . 'y'), children: 'grow')]);
+        }, key: $key, storageType: StorageType::Snapshot);
+    }
+
+    /** @param \Closure(): FunctionComponent $component */
+    private static function persistentLocation(RosannaState $app, \Closure $component, string $uri, bool $partial = false): string
+    {
+        $fields = self::press(self::page($app, static fn() => $component()(), $uri));
+        RequestLifecycle::reset();
+
+        $response = $app->actions()->handle(self::post($fields, partial: $partial, uri: $uri), behavior: SnapshotBehavior::Persistent);
+
+        self::assertNotNull($response);
+        self::assertSame(303, $response->status);
+
+        return $response->headers['Location'];
+    }
+
+    /** @return iterable<string, array{bool}> */
+    public static function bothSubmissions(): iterable
+    {
+        yield 'plain' => [false];
+        yield 'partial' => [true];
+    }
+
+    /** SN-33 例外にせず、そのままの行き先に戻してログに出す */
+    #[DataProvider('bothSubmissions')]
+    public function testSN33TooLongUrlFallsBackToThePlainTargetAndWarns(bool $partial): void
+    {
+        $location = self::persistentLocation(self::app(), self::oversized(...), '/page?a=1', $partial);
+
+        self::assertSame('/page?a=1', $location);
+        self::assertStringContainsString('[Rosanna] Snapshot dropped (behavior=Persistent)', $this->log());
+        self::assertStringContainsString('#big', $this->log());
+        self::assertStringContainsString('SnapshotBehavior::Session', $this->log());
+    }
+
+    /** SN-33 状態が小さくても、既存のクエリと合わせて超えるなら運ばない */
+    public function testSN33ALongExistingQueryCountsTowardsTheLimit(): void
+    {
+        $uri = '/page?keep=' . str_repeat('q', SnapshotUrl::MAX_URL_BYTES - 20);
+
+        $location = self::persistentLocation(self::app(), static fn() => self::counter(StorageType::Snapshot), $uri);
+
+        self::assertSame($uri, $location);
+        self::assertStringContainsString('Snapshot dropped (behavior=Persistent)', $this->log());
+    }
+
+    /** SN-33 スナップショットなしで超えるクエリは、そのまま返す。切り詰めない */
+    public function testSN33AQueryAlreadyOverTheLimitIsReturnedUnchanged(): void
+    {
+        $uri = '/page?keep=' . str_repeat('q', SnapshotUrl::MAX_URL_BYTES);
+
+        $location = self::persistentLocation(self::app(), static fn() => self::counter(StorageType::Snapshot), $uri);
+
+        self::assertSame($uri, $location);
+        self::assertStringContainsString('Snapshot dropped (behavior=Persistent)', $this->log());
+    }
+
+    /** SN-33 URL に入っている古いスナップショットは行き先に残らず、長さにも数えない */
+    public function testSN33TheCarriedSnapshotIsNeitherKeptNorCounted(): void
+    {
+        $old = '_rosanna_snapshot=' . str_repeat('o', SnapshotUrl::MAX_URL_BYTES);
+
+        self::assertSame('/page?a=1', self::persistentLocation(self::app(), self::oversized(...), '/page?a=1&' . $old));
+
+        $replaced = self::persistentLocation(self::app(), static fn() => self::counter(StorageType::Snapshot), '/page?a=1&' . $old);
+        self::assertStringStartsWith('/page?a=1&_rosanna_snapshot=', $replaced);
+        self::assertLessThan(SnapshotUrl::MAX_URL_BYTES, strlen($replaced));
+    }
+
+    /** SN-33 `with()` が拒否して `/` に戻す経路にも上限が効く。元の行き先には戻らない */
+    public function testSN33TheFallbackRouteHasTheSameLimit(): void
+    {
+        // `\` があると parse_url() を通り、これは読めないので with() が拒否する
+        $rejected = '/x:1/?a=\\';
+        self::assertFalse(parse_url($rejected));
+
+        self::assertSame('/', self::persistentLocation(self::app(), self::oversized(...), $rejected));
+        self::assertStringContainsString('Snapshot dropped (behavior=Persistent)', $this->log());
+    }
+
+    public function testSN33TheFallbackRouteStillCarriesASnapshotThatFits(): void
+    {
+        $location = self::persistentLocation(self::app(), static fn() => self::counter(StorageType::Snapshot), '/x:1/?a=\\');
+
+        self::assertStringStartsWith('/?_rosanna_snapshot=', $location);
+        self::assertStringNotContainsString('Snapshot dropped', $this->log());
+    }
+
+    public function testSN33AUrlWithinTheLimitDoesNotWarn(): void
+    {
+        $location = self::persistentLocation(self::app(), static fn() => self::counter(StorageType::Snapshot), '/page');
+
+        self::assertStringStartsWith('/page?_rosanna_snapshot=', $location);
+        self::assertStringNotContainsString('Snapshot dropped', $this->log());
     }
 
     public function testHD15ThereIsNoPublicRedirectMethod(): void

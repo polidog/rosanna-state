@@ -11,7 +11,13 @@ final class SnapshotUrl
     public const PARAM = '_rosanna_snapshot';
 
     /**
-     * フラグメントは落とす。
+     * パスとクエリを合わせた長さの上限 (SN-33)。Apache の LimitRequestLine (8190) と nginx の large_client_header_buffers
+     * (8k) はメソッドと HTTP のバージョンを含むリクエスト行に効くので、その分を残す。
+     */
+    public const MAX_URL_BYTES = 8000;
+
+    /**
+     * フラグメントは落とす。長さでは結果を変えない。上限をどう扱うかは呼び出し側が決める (SN-33)。
      *
      * @throws \InvalidArgumentException 同一オリジンのパスでないとき (SN-20)
      */

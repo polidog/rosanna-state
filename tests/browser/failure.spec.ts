@@ -52,6 +52,43 @@ for (const [behavior, shown] of [['persistent', 1], ['session', 1]] as const) {
   });
 }
 
+// SN-33 スナップショットを URL に入れられないとき、サーバーは状態のない行き先に 303 で答える
+for (const javaScriptEnabled of [true, false]) {
+  test.describe(`SN-33 Persistent の URL の上限 (JavaScript ${javaScriptEnabled ? 'あり' : 'なし'})`, () => {
+    test.use({ javaScriptEnabled });
+
+    test('上限を超える状態は運ばず、ページは初期状態で開いて次の action も動く', async ({ page, server }) => {
+      const failed: number[] = [];
+      page.on('response', (response) => {
+        if (response.status() >= 400) failed.push(response.status());
+      });
+      await page.goto('/behavior/persistent?keep=1');
+
+      await own(page, 'w', '.own .name-field').fill('x'.repeat(9000));
+      await own(page, 'w', '.own .save').click();
+
+      await expect(page).toHaveURL(/\/behavior\/persistent\?keep=1$/);
+      await expect(own(page, 'w', '.shown-name')).toHaveText('');
+      expect(server.log()).toContain('Snapshot dropped (behavior=Persistent)');
+
+      await own(page, 'w', '.inc').click();
+      await expect(page).toHaveURL(/\/behavior\/persistent\?keep=1&_rosanna_snapshot=/);
+      await expect(count(page, 'w')).toHaveText('1');
+      expect(failed).toEqual([]);
+    });
+
+    test('上限に収まる状態は URL で運ぶ', async ({ page }) => {
+      await page.goto('/behavior/persistent');
+
+      await own(page, 'w', '.own .name-field').fill('x'.repeat(3000));
+      await own(page, 'w', '.own .save').click();
+
+      await expect(page).toHaveURL(/_rosanna_snapshot=/);
+      await expect(own(page, 'w', '.shown-name')).toHaveText('x'.repeat(3000));
+    });
+  });
+}
+
 test.describe('JS-5', () => {
   test('実際の 500 (replay の例外) で再送も form.submit() もせず、イベントと属性で知らせる', async ({ page, context, posts, baseURL }) => {
     await page.goto('/boom');
