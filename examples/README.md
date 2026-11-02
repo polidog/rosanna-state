@@ -33,6 +33,7 @@ Read in order to go from the basics to embedding in a host. The last column says
 | [08-guard](08-guard/index.php) | A host protecting a page, next to the host's own form | `pagePath`, `csrf()` | Works |
 | [09-defer](09-defer/index.php) | A shared page body with per-visitor fragments | `Defer`, `H::defer`, `handleDeferred` | Shows only the fallback |
 | [10-psx](10-psx/) | Tags and nested components | `.psx`, `rosanna-state compile`, `loadComponentManifest` | Works |
+| [11-todo](11-todo/index.php) | Saving a form: the same title twice adds two rows, the input clears, an invalid value stays | `useFormAction`, `useEffect`, hidden nonce | Works |
 
 ## Notes
 
@@ -40,7 +41,8 @@ Read in order to go from the basics to embedding in a host. The last column says
 - **The samples share a session** because they share an origin. Each one uses its own `fc()` keys so their state does not mix.
 - **[router.php](router.php) only exists to list the samples.** In your application a host router or one PHP file per page does this job, and `vendor/bin/rosanna-state publish` puts `rosanna.js` in `public/`.
 - **Signing in to 08-guard checks no password.** It only shows the order of the checks.
-- **No hook appends a form value to an array.** `useFormAction` overwrites a hook with the field's value. For a to-do style screen where typed text joins a list, write to your database from an ordinary host form and read it back while rendering. Per-row operations can follow 03-cart.
+- **No hook appends a form value to an array.** `useFormAction` overwrites a hook with the field's value. For a to-do style screen where typed text joins a list, save in `useEffect` and read the list back while rendering, as in 11-todo ([Saving a form and clearing the input](../README.md#saving-a-form-and-clearing-the-input)), or write to your database from an ordinary host form. Per-row operations can follow 03-cart.
+- **11-todo keeps its rows in `$_SESSION`** as a stand-in for a database, so each visitor has their own list.
 
 Worker mode needs FrankenPHP or similar, so it is not included here. See [worker mode in the README](../README.md#worker-mode).
 

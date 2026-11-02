@@ -280,6 +280,74 @@ echo RenderContext::run($app->scope($request), fn(): string => $app->renderEleme
 
 `useFormAction` は form の `onSubmit` か、`name` を持つ `input`、`select`、`textarea` の `onChange`、`onInput` (自分の欄だけ) で使います。
 
+### フォームを保存して入力欄を空に戻す
+
+「タイトルを打って Add を押すと行が保存され、入力欄が空に戻る」というよくある形は、hidden の欄を 1 つと `value` の選び方で書けます。動くページは [examples/11-todo](examples/11-todo/index.php) です。
+
+<!-- readme-test: form-save -->
+```php
+<?php
+// public/index.php
+declare(strict_types=1);
+
+use Polidog\Rosanna\Html\H;
+use Polidog\Rosanna\Runtime\Element;
+use Polidog\Rosanna\Runtime\RenderContext;
+use Polidog\Rosanna\State\Http\Request;
+use Polidog\Rosanna\State\RosannaState;
+
+use function Polidog\Rosanna\State\fc;
+use function Polidog\Rosanna\State\useEffect;
+use function Polidog\Rosanna\State\useFormAction;
+use function Polidog\Rosanna\State\useState;
+
+require __DIR__ . '/../vendor/autoload.php';
+
+$Todos = fc(function (): Element {
+    [$title, $setTitle] = useState('');
+    [$nonce, $setNonce] = useState('');
+
+    $invalid = $nonce !== '' && (trim($title) === '' || preg_match('/^.{1,40}$/su', $title) !== 1);
+
+    useEffect(function () use ($nonce, $title, $invalid): void {
+        if ($nonce !== '' && !$invalid) {
+            $_SESSION['todos'][] = trim($title); // stands in for $db->insert()
+        }
+    }, [$nonce]);
+
+    return H::div(children: [
+        H::form(onSubmit: useFormAction(['title' => $setTitle, 'nonce' => $setNonce]), children: [
+            H::input(type: 'hidden', name: 'nonce', value: bin2hex(random_bytes(8))),
+            H::input(name: 'title', required: true, value: $invalid ? $title : ''),
+            $invalid ? H::p(children: 'Enter 1 to 40 characters.') : null,
+            H::button(children: 'Add'),
+        ]),
+        H::ul(children: array_map(fn(string $todo): Element => H::li(children: $todo), $_SESSION['todos'] ?? [])),
+    ]);
+}, key: 'todos');
+
+$app = new RosannaState();
+$app->setSnapshotSecret((string) getenv('ROSANNA_SNAPSHOT_SECRET'));
+
+$request = Request::fromGlobals();
+$response = $app->actions()->handle($request, replay: fn(bool $partial): Element => $Todos());
+if ($response !== null) {
+    $response->send();
+
+    return;
+}
+
+echo RenderContext::run($app->scope($request), fn(): string => $app->renderElement($Todos()));
+```
+
+- **deps は `[$title]` ではなく `[$nonce]` です。** `[$title]` では同じタイトルを続けて 2 回足しても deps が変わらないので、保存は 1 回です。hidden の欄は描画ごとに違う値を送り、`$nonce !== ''` が最初の表示を除きます。
+- **入力欄には `$title` ではなく `''` を描画します。** `rosanna.js` があれば、送信したフォームの欄は差分適用の後に描画された値になります ([rosanna.js](#rosannajs))。なければ 303 の先の新しいページです。送信中に打った文字は残ります。不正な値のときは `$title` を描画するので、打ったものが残ります。
+- **effect は描画の途中で動きます。** `rosanna.js` があれば POST の部分更新の中で、なければ 303 の後の GET の中で動きます。一覧を effect の後に読めば、足した行はその応答に出ます。保存は描画を待ちます。コンポーネントを描画するものがなければ、描画されるまで保存されません。effect が例外を投げると deps は保存されず、次の描画でまた動きます。失敗した保存は、次に描画した人のリクエストでやり直されます。
+- **Session の保存先なら、送り直しても保存し直しません。** `rosanna.js` があればダブルクリックの 2 回目は、値が同じなら送られません。なければ 2 回目の POST のバージョンが古くなります。303 の後のリロードは GET で、deps は変わりません。別のタブのフォームや、保存した POST を古い nonce のまま送り直したものはバージョンが古いので適用されません ([古い画面からの送信](#古い画面からの送信))。`rosanna.js` があれば最新の行が描かれて打ったものは残り、もう一度 Add を押せば保存されます。**JavaScript なしではその文字は失われます。** 303 の先は入力欄が空の新しいページだからです。
+- **この形には Session を使ってください。** 上の比較をサーバーで行うのは Session だけです。Snapshot と Memory では同じ POST を送り直すと適用され、**もう一度保存します。** JavaScript なしの Snapshot のページをリロードすると、ブラウザはまさにそれをするか尋ねます。ロックしないセッションハンドラーでも、同時のリクエストは通ることがあります。
+- **nonce はセキュリティのトークンではありません。** 値はタイトルと同じクライアント入力です。effect の中で、サーバーで検証してください (`required` はブラウザが空の欄を送るのを止めるだけで、遅れた 2 回目のクリックなどに効きます)。誰でもページを開いて新しいフォームを何度でも送れて、そのたびに新しい保存になります。上限、持ち主、「1 つしかあってはならない」はデータベースの仕事です。たとえば一意制約を使います。
+- 不正なタイトルとそのメッセージはセッションに残るので、次に送信するまで、リロードや後の訪問でまた表示されます。配列の deps は最初の表示でセッションを始めます ([useEffect の配列 deps はセッションを始める](#useeffect-の配列-deps-はセッションを始める))。
+
 ## H と属性
 
 `H` は `polidog/rosanna` のものです。`children` と属性は[そちらの README](https://github.com/polidog/rosanna/blob/main/README.ja.md#h-と属性) を見てください。`RosannaState` は同じ要素を描画します。このパッケージが足すのはイベントの prop です。

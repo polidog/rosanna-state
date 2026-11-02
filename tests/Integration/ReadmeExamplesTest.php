@@ -16,7 +16,7 @@ final class ReadmeExamplesTest extends TestCase
     private const SECRET = 'readme-test-secret';
 
     private const EXAMPLES = [
-        'quickstart', 'keys', 'effect', 'form-input', 'elements', 'class-component', 'storage', 'snapshot-behavior',
+        'quickstart', 'keys', 'effect', 'form-input', 'form-save', 'elements', 'class-component', 'storage', 'snapshot-behavior',
         'psx-counter', 'psx-host', 'guard', 'worker', 'defer', 'defer-entry',
     ];
 
@@ -218,6 +218,68 @@ final class ReadmeExamplesTest extends TestCase
 
         $next = self::http($port, '/', ['Cookie' => (string) self::cookieOf($posted)]);
         self::assertStringContainsString('Saved: Ann', $next['body']);
+    }
+
+    public function testFormSaveAddsTheSameTitleTwiceAndKeepsAnInvalidValue(): void
+    {
+        $port = $this->serve($this->project(['public/index.php' => self::block('form-save')]));
+
+        $page = self::http($port, '/');
+        $cookie = (string) self::cookieOf($page);
+        self::assertNotSame('', $cookie, 'Array deps start a session on the first view');
+
+        foreach ([1, 2] as $rows) {
+            $posted = self::post($port, '/', ['title' => 'milk'] + self::formFields($page['body']), ['Cookie' => $cookie]);
+            self::assertSame(303, $posted['status']);
+            $page = self::http($port, '/', ['Cookie' => $cookie]);
+            self::assertSame($rows, substr_count($page['body'], '<li>milk</li>'));
+            self::assertStringContainsString('name="title" value=""', $page['body']);
+        }
+
+        self::assertSame(2, substr_count(self::http($port, '/', ['Cookie' => $cookie])['body'], '<li>milk</li>'), 'A reload adds nothing');
+
+        $invalid = self::post($port, '/', ['title' => str_repeat('x', 41)] + self::formFields($page['body']), ['Cookie' => $cookie, 'X-Rosanna-Partial' => '1']);
+        self::assertStringContainsString('Enter 1 to 40 characters.', $invalid['body']);
+        self::assertStringContainsString('value="' . str_repeat('x', 41) . '"', $invalid['body']);
+        self::assertSame(2, substr_count($invalid['body'], '<li>milk</li>'));
+    }
+
+    /** README が「送り直しても保存し直さない」のは Session だけと書いている。Snapshot は保存し直す */
+    public function testResendingAFormSavesAgainOnlyWithoutTheServerSideVersionCheck(): void
+    {
+        // $_SESSION は Snapshot のリクエストで開いていないので、保存の回数をファイルで数える
+        $block = str_replace(
+            '$_SESSION[\'todos\'][] = trim($title); // stands in for $db->insert()',
+            'file_put_contents(__DIR__ . \'/../saved.log\', "x\n", FILE_APPEND);',
+            self::block('form-save'),
+            $count,
+        );
+        self::assertSame(1, $count);
+
+        $session = $this->project(['public/index.php' => $block]);
+        $port = $this->serve($session);
+        $page = self::http($port, '/');
+        $cookie = (string) self::cookieOf($page);
+        $fields = ['title' => 'milk'] + self::formFields($page['body']);
+
+        self::post($port, '/', $fields, ['Cookie' => $cookie, 'X-Rosanna-Partial' => '1']);
+        $again = self::post($port, '/', $fields, ['Cookie' => $cookie, 'X-Rosanna-Partial' => '1']);
+        self::assertSame('1', self::header($again, 'X-Rosanna-Stale'));
+        self::assertSame(303, self::post($port, '/', $fields, ['Cookie' => $cookie])['status']);
+        self::http($port, '/', ['Cookie' => $cookie]);
+        self::assertSame("x\n", file_get_contents($session . '/saved.log'));
+
+        $snapshot = $this->project(['public/index.php' => str_replace(
+            '}, key: \'todos\');',
+            '}, key: \'todos\', storageType: Polidog\Rosanna\State\Storage\StorageType::Snapshot);',
+            $block,
+        )]);
+        $port = $this->serve($snapshot);
+        $fields = ['title' => 'milk'] + self::formFields(self::http($port, '/')['body']);
+
+        self::post($port, '/', $fields);
+        self::post($port, '/', $fields);
+        self::assertSame("x\nx\n", file_get_contents($snapshot . '/saved.log'));
     }
 
     public function testKeysSeparateTheInstances(): void
