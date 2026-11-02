@@ -1144,12 +1144,13 @@
     }
 
     /**
-     * JS-26 ヘッダーを受け取れなかった古いフォームの拒否を、1 回だけ更新で受ける。
+     * JS-26 別のタブのログインなどでセッションが変わった古いフォームの拒否を、1 回だけ更新で受ける。
+     * 更新はフォームを新しくするだけで、action は再送しない (JS-5)。
      *
      * @returns {boolean} 引き受けたか。false なら呼ぶ側が失敗として扱う
      */
     function recoverByRefresh(submission, response, rejected, { announced = false, restore = null } = {}) {
-        if (!submission.tokenless || (response.status !== 403 && response.status !== 400)) return false;
+        if (response.status !== 403 && response.status !== 400) return false;
         if (failureRefreshTried && !refresh) return false;
         failureRefreshTried = true;
         requestRefresh({ submission, response, rejected, announced, restore });
@@ -1360,13 +1361,20 @@
         await fillResolvedDefers(content);
 
         const token = csrfTokenIn(content);
-        const { recoveries } = current;
         const slots = instanceSlots(document);
-        if (token === null && !current.forced) {
-            // JS-26 セッションがないなら古いフォームではない。描き直しても同じ失敗になる
-            recoveries.forEach(({ rejected }) => rejected());
-            return;
+        // JS-26 トークンのないフォームで今もセッションがないなら古いフォームではない。描き直しても同じ失敗になる。
+        // トークンのあるフォームなら、セッションが消えた (ログアウト) ので新しいフォームで通る
+        const unchanged = ({ submission }) => token === null && !current.forced && submission.tokenless;
+        current.recoveries.filter(unchanged).forEach(({ rejected }) => rejected());
+        const recoveries = current.recoveries.filter((recovery) => !unchanged(recovery));
+        if (recoveries.length === 0 && !current.forced) return;
+
+        // 差分を当てる先がない。ログイン前だけのフォームなど。古いフォームを残さず、catch の再読み込みに任せる
+        const nextSlots = new Set(instanceSlots(content).values());
+        if (recoveries.some(({ submission }) => slots.has(submission.component) && !nextSlots.has(slots.get(submission.component)))) {
+            throw new Error('rejected instance is not in the refreshed page');
         }
+
         for (const { submission, response, announced, restore } of recoveries) {
             if (!announced) {
                 submission.keepFields = announceStale(submission.form, submission.component, { origin: 'server', response });

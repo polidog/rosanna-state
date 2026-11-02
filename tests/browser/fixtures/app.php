@@ -15,6 +15,7 @@ use Polidog\Rosanna\State\FunctionComponent;
 use Polidog\Rosanna\State\Http\Request;
 use Polidog\Rosanna\State\RosannaState;
 use Polidog\Rosanna\State\Snapshot\SnapshotBehavior;
+use Polidog\Rosanna\State\Storage\NativeSession;
 use Polidog\Rosanna\State\Storage\SnapshotPersist;
 use Polidog\Rosanna\State\Storage\StorageType;
 
@@ -473,6 +474,68 @@ switch ($scene) {
         $snap = widget('snap', StorageType::Snapshot, $arg === '' ? null : SnapshotPersist::from($arg));
         $parent = widget('parent', StorageType::Snapshot, null, [widget('child', StorageType::Snapshot)]);
         serve($app, $request, static fn(): Element => H::main(children: [$session(), $snap(), $parent()]));
+
+        return;
+
+        // JS-26 別のタブのログインとログアウト。ページのセッションを host が変える
+    case 'auth':
+        session_start();
+        if ($arg === 'login') {
+            session_regenerate_id(true);
+            $_SESSION['fixture_user'] = 'alice';
+        } else {
+            $_SESSION = [];
+            session_destroy();
+            if ($arg === 'logout-clear') {
+                setcookie(session_name(), '', time() - 3600, '/');
+            }
+        }
+        echo $arg;
+
+        return;
+
+        // JS-26 ログインの前後で中身が変わるページ。guest はログインすると描かれない
+    case 'members':
+        $app = newApp($request);
+        NativeSession::resumeFromCookie($request->cookies);
+        $user = $_SESSION['fixture_user'] ?? 'anonymous';
+        $hello = fc(static function () use ($user): Element {
+            [$n, $set] = useState(0);
+
+            return H::div(className: 'widget', children: [
+                H::span(className: 'n', children: (string) $n),
+                H::span(className: 'user', children: is_string($user) ? $user : ''),
+                H::button(className: 'inc', onClick: static fn() => $set($n + 1), children: '+1'),
+            ]);
+        }, key: 'hello');
+        $guest = widget('guest', StorageType::Session);
+        serve($app, $request, static fn(): Element => H::main(children: $user === 'anonymous' ? [$hello(), $guest()] : [$hello()]));
+
+        return;
+
+        // JS-26 host の権限の確認。ログアウトするとページそのものが 403 になる
+    case 'guarded':
+        NativeSession::resumeFromCookie($request->cookies);
+        if (!isset($_SESSION['fixture_user'])) {
+            http_response_code(403);
+            header('Content-Type: text/html; charset=utf-8');
+            echo '<!doctype html><html><body><p id="denied">denied</p></body></html>';
+
+            return;
+        }
+        $app = newApp($request);
+        $widget = widget('w', StorageType::Session);
+        serve($app, $request, static fn(): Element => H::main(children: $widget()));
+
+        return;
+
+        // JS-26 SN-18 の 400 は適用の後に返る。木が変わると、正直なクライアントの送信でも起きる
+    case 'moved-child':
+        $app = newApp($request);
+        $moved = isset($request->cookies['fixture_moved']);
+        $child = widget('c', StorageType::Snapshot);
+        $parent = widget('p', StorageType::Session, null, $moved ? [] : [$child]);
+        serve($app, $request, static fn(): Element => H::main(children: $moved ? [$parent(), $child()] : [$parent()]));
 
         return;
 

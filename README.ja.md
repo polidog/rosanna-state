@@ -834,11 +834,17 @@ $response->send();
 - 並べ替えや削除のある一覧の行には `id` を付けてください。付けないと位置で対応付けます。
 - コンポーネントと祖先、子孫は順番に更新し、兄弟は待ちません。送信中の固定値の action は捨てます。`useFormAction` の action は完了後に最新の値で送り直します。
 - **失敗した部分更新は再送しません。** すでに適用されている可能性があるからです。キャンセルできる `rosanna:submit-error` (`detail.response` か `detail.error`) を出し、キャンセルされなければラッパーに `data-rosanna-error` を付けます。
+- フォームのトークンと署名はセッションに結びつくので、別のタブでログイン (`session_regenerate_id()`) やログアウトをすると、開いたままのタブのフォームは 403 か 400 で拒否されます。`rosanna.js` はこの拒否を受けると `rosanna:submit-error` の前にページを 1 回 GET で取り直し、ラッパーごとに差分を当てて `rosanna:stale` を出します。入力は残り、押し直すと通ります。
+  - ずっと失敗する拒否では更新は 1 回だけで、次の成功まで繰り返さず、2 回目から `rosanna:submit-error` を出します。そのため、host が返す 403 や入力の 400 は、最初の 1 回はこのイベントになりません。
+  - ラッパーの外は変えません。利用者の名前などをラッパーの外に描くページは、再読み込みするまで前の表示のままです。取り直したページに送信したインスタンスがないとき、ページの GET が 2xx でないときと redirect されたときは再読み込みします。
+  - `disableCsrfProtection()` の構成はセッションの変更を見分けられず、更新で直らないので `rosanna:submit-error` になります。下の例で再読み込みしてください。
+  - JavaScript なしでは、この回復は働きません。素の 400 か 403 の応答がそのまま表示されるので、ページを開き直してください。
 
 ```js
 document.addEventListener('rosanna:submit-error', (e) => {
     e.preventDefault();
-    if (e.detail.response?.status === 403) location.reload(); // CSRF トークンの失効
+    // 更新でも直らなかった拒否。セッションの変更か CSRF トークンの失効
+    if ([400, 403].includes(e.detail.response?.status)) location.reload();
 });
 ```
 
@@ -912,7 +918,7 @@ session.cookie_samesite = Lax
 - `component()` (`Polidog\Rosanna\State\component()`) はラッパーを出さず、保存先は常に Session です。action はその場の更新でなく再読み込みになります。
 - PSX の成果物は絶対パスに依存します ([PSX](#psx))。
 - 属性のスプレッド (`<div {...$a} />`) と名前空間付きの属性名は PSX では使えません。
-- 秘密鍵があり Cookie のない訪問者では、最初の action でセッションが始まります。描き直されなかった別のフォームには CSRF トークンがないので、その応答 (`X-Rosanna-Session-Started: 1`) の後で `rosanna.js` がページを GET で取り直し、ラッパーごとに差分を当ててフォームを新しくします。入力中の欄、フォーカス、Snapshot の状態は残ります。取り直せなければ再読み込みします。この間のクリックは送信中のロックと同じ扱いで、固定値は捨て、`data-rosanna-with-value` は最新の値で送り直します。同じ理由で、トークンのないフォームの Session の action は同時に送りません。別のタブの古いフォームは 403 か 400 を受けた後に 1 回同じ更新を行い、`rosanna:stale` を出します。その action は適用されていないので、押し直すと通ります。残る制約は次のとおりです。
+- 秘密鍵があり Cookie のない訪問者では、最初の action でセッションが始まります。描き直されなかった別のフォームには CSRF トークンがないので、その応答 (`X-Rosanna-Session-Started: 1`) の後で `rosanna.js` がページを GET で取り直し、ラッパーごとに差分を当ててフォームを新しくします。入力中の欄、フォーカス、Snapshot の状態は残ります。取り直せなければ再読み込みします。この間のクリックは送信中のロックと同じ扱いで、固定値は捨て、`data-rosanna-with-value` は最新の値で送り直します。同じ理由で、トークンのないフォームの Session の action は同時に送りません。別のタブの古いフォームは 403 か 400 を受けた後に 1 回同じ更新を行い、`rosanna:stale` を出します (ログインとログアウトの場合は [rosanna.js](#rosannajs))。その action は適用されていないので、押し直すと通ります。残る制約は次のとおりです。
   - 更新の分の GET が 1 回増えます。フォームを含む解決済みの defer ごとの GET と、戻す Snapshot ごとの `restore` の POST も増えます。
   - host が JS で組み立てたラッパーの外のフォームは新しくなりません。送ると 403 になるので、`rosanna:submit-error` で再読み込みしてください。
   - JavaScript なしでは、通常の POST の応答でそのタブのフォームは新しくなりますが、開いたままの別のタブのフォームは 403 になり、再読み込みが要ります。
