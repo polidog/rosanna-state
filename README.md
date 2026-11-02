@@ -301,7 +301,7 @@ $Todos = fc(function (): Element {
     [$title, $setTitle] = useState('');
     [$nonce, $setNonce] = useState('');
 
-    $invalid = $nonce !== '' && (trim($title) === '' || mb_strlen($title) > 40);
+    $invalid = $nonce !== '' && (trim($title) === '' || preg_match('/^.{1,40}$/su', $title) !== 1);
 
     useEffect(function () use ($nonce, $title, $invalid): void {
         if ($nonce !== '' && !$invalid) {
