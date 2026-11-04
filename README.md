@@ -11,7 +11,7 @@ This package holds the hooks (`fc()`, `useState` and the rest), actions, signatu
 It has no router, no DI and no events. Choosing a page from a URL belongs to the host (a framework, or one PHP file per page). Together with `polidog/rosanna` it is a rewrite of [usePHP](https://github.com/polidog/usePHP); see [the migration steps](#migrating-from-usephp).
 
 - PHP 8.5+ with the `session` and `mbstring` extensions. `polidog/rosanna` requires `nikic/php-parser` for the PSX compiler. Rendering does not load it.
-- The current version is v0.1.0. It depends on `^0.1` of `polidog/rosanna` and `polidog/rosanna-defer`.
+- The current version is v1.0.0. It depends on `^1.0` of `polidog/rosanna` and `polidog/rosanna-defer`.
 
 ## Installation
 
