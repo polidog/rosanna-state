@@ -11,7 +11,7 @@
 ルーターも DI もイベントも持ちません。URL からページを選ぶのは host (フレームワークか、ページごとの PHP ファイル) の役割です。`polidog/rosanna` と合わせて [usePHP](https://github.com/polidog/usePHP) の作り直しで、移行は[下の手順](#usephp-からの移行)のとおりです。
 
 - PHP 8.5 以上と `session`、`mbstring` 拡張。`polidog/rosanna` は PSX のコンパイラのために `nikic/php-parser` を必要とします。描画では読み込みません。
-- 現在の版は v0.1.0 です。`polidog/rosanna` と `polidog/rosanna-defer` の `^0.1` に依存します。
+- 現在の版は v1.0.0 です。`polidog/rosanna` と `polidog/rosanna-defer` の `^1.0` に依存します。
 
 ## インストール
 
